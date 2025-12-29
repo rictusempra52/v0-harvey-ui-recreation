@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -35,10 +35,21 @@ type Message = {
   sources?: Array<{ title: string; page?: string }>
 }
 
+type HighlightArea = {
+  id: string
+  label: string
+  top: number
+  left: number
+  width: number
+  height: number
+  color?: string
+}
+
 export default function Dashboard() {
   const [message, setMessage] = useState("")
   const [messages, setMessages] = useState<Message[]>([])
   const [isRecording, setIsRecording] = useState(false)
+  const [activeSourceIndex, setActiveSourceIndex] = useState(0)
 
   const scenarios: Scenario[] = [
     {
@@ -146,6 +157,19 @@ export default function Dashboard() {
     }
   }
 
+  const latestAssistantSources = useMemo(() => {
+    const lastAssistantMessage = [...messages]
+      .reverse()
+      .find((msg) => msg.role === "assistant" && msg.sources?.length)
+    return lastAssistantMessage?.sources ?? []
+  }, [messages])
+
+  useEffect(() => {
+    if (latestAssistantSources.length) {
+      setActiveSourceIndex(0)
+    }
+  }, [latestAssistantSources])
+
   const toggleRecording = () => {
     setIsRecording(!isRecording)
     if (!isRecording) {
@@ -204,139 +228,321 @@ export default function Dashboard() {
           </div>
         </header>
 
-        {/* チャットエリア */}
-        <ScrollArea className="flex-1 p-4 lg:p-8">
-          <div className="max-w-4xl mx-auto">
-            {messages.length === 0 ? (
-              <div className="space-y-8">
-                {/* ウェルカムメッセージ */}
-                <div className="text-center space-y-4 py-8">
-                  <div className="inline-flex h-20 w-20 lg:h-24 lg:w-24 items-center justify-center rounded-2xl bg-primary/10">
-                    <MessageSquareIcon className="h-10 w-10 lg:h-12 lg:w-12 text-primary" />
-                  </div>
-                  <h2 className="text-2xl lg:text-4xl font-bold text-foreground text-balance">
-                    マンション管理の業務を
-                    <br />
-                    サポートします
-                  </h2>
-                  <p className="text-base lg:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-                    議事録作成、回覧文作成、入居者対応など
-                    <br />
-                    日々の業務をAIがお手伝いします
-                  </p>
-                </div>
+        <div className="flex flex-1 overflow-hidden">
+          <section className="flex flex-col flex-1 min-w-0">
+            {/* チャットエリア */}
+            <ScrollArea className="flex-1 p-4 lg:p-8">
+              <div className="max-w-4xl mx-auto">
+                {messages.length === 0 ? (
+                  <div className="space-y-8">
+                    {/* ウェルカムメッセージ */}
+                    <div className="text-center space-y-4 py-8">
+                      <div className="inline-flex h-20 w-20 lg:h-24 lg:w-24 items-center justify-center rounded-2xl bg-primary/10">
+                        <MessageSquareIcon className="h-10 w-10 lg:h-12 lg:w-12 text-primary" />
+                      </div>
+                      <h2 className="text-2xl lg:text-4xl font-bold text-foreground text-balance">
+                        マンション管理の業務を
+                        <br />
+                        サポートします
+                      </h2>
+                      <p className="text-base lg:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
+                        議事録作成、回覧文作成、入居者対応など
+                        <br />
+                        日々の業務をAIがお手伝いします
+                      </p>
+                    </div>
 
-                {/* 業務シナリオボタン */}
-                <div className="grid sm:grid-cols-2 gap-4 lg:gap-6">
-                  {scenarios.map((scenario) => (
-                    <Card
-                      key={scenario.id}
-                      className={`p-6 lg:p-8 cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98] ${scenario.color} border-2`}
-                      onClick={() => handleScenarioClick(scenario)}
-                    >
-                      <div className="flex flex-col items-start gap-4">
-                        <div className="h-16 w-16 lg:h-20 lg:w-20 rounded-2xl bg-background/50 flex items-center justify-center">
-                          {scenario.icon}
-                        </div>
-                        <div>
-                          <h3 className="text-xl lg:text-2xl font-bold mb-2">{scenario.title}</h3>
-                          <p className="text-sm lg:text-base opacity-90 leading-relaxed">{scenario.description}</p>
-                        </div>
-                      </div>
-                    </Card>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-6 lg:space-y-8">
-                {messages.map((msg, idx) => (
-                  <div key={idx} className={`flex gap-3 lg:gap-4 ${msg.role === "user" ? "justify-end" : ""}`}>
-                    {msg.role === "assistant" && (
-                      <div className="h-10 w-10 lg:h-12 lg:w-12 shrink-0 rounded-xl bg-primary/10 flex items-center justify-center">
-                        <MessageSquareIcon className="h-5 w-5 lg:h-6 lg:w-6 text-primary" />
-                      </div>
-                    )}
-                    <div className={`flex-1 max-w-2xl space-y-3`}>
-                      <Card
-                        className={`p-4 lg:p-6 ${
-                          msg.role === "user"
-                            ? "bg-primary text-primary-foreground ml-auto"
-                            : "bg-card text-card-foreground"
-                        }`}
-                      >
-                        <p className="text-base lg:text-lg leading-relaxed whitespace-pre-line">{msg.content}</p>
-                      </Card>
-                      {/* 根拠の見える化：引用元の表示 */}
-                      {msg.sources && msg.sources.length > 0 && (
-                        <Card className="p-4 lg:p-5 bg-muted/50 border-l-4 border-l-primary">
-                          <p className="text-sm font-semibold mb-3 text-muted-foreground flex items-center gap-2">
-                            <FileTextIcon className="h-4 w-4" />
-                            参照した文書
-                          </p>
-                          <div className="space-y-2">
-                            {msg.sources.map((source, i) => (
-                              <div key={i} className="flex items-start gap-2 text-sm lg:text-base">
-                                <div className="h-5 w-5 shrink-0 rounded bg-primary/10 flex items-center justify-center mt-0.5">
-                                  <span className="text-xs font-bold text-primary">{i + 1}</span>
-                                </div>
-                                <div>
-                                  <span className="font-medium text-foreground">{source.title}</span>
-                                  {source.page && <span className="text-muted-foreground ml-2">（{source.page}）</span>}
-                                </div>
-                              </div>
-                            ))}
+                    {/* 業務シナリオボタン */}
+                    <div className="grid sm:grid-cols-2 gap-4 lg:gap-6">
+                      {scenarios.map((scenario) => (
+                        <Card
+                          key={scenario.id}
+                          className={`p-6 lg:p-8 cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98] ${scenario.color} border-2`}
+                          onClick={() => handleScenarioClick(scenario)}
+                        >
+                          <div className="flex flex-col items-start gap-4">
+                            <div className="h-16 w-16 lg:h-20 lg:w-20 rounded-2xl bg-background/50 flex items-center justify-center">
+                              {scenario.icon}
+                            </div>
+                            <div>
+                              <h3 className="text-xl lg:text-2xl font-bold mb-2">{scenario.title}</h3>
+                              <p className="text-sm lg:text-base opacity-90 leading-relaxed">{scenario.description}</p>
+                            </div>
                           </div>
                         </Card>
-                      )}
+                      ))}
                     </div>
-                    {msg.role === "user" && (
-                      <div className="h-10 w-10 lg:h-12 lg:w-12 shrink-0 rounded-xl bg-secondary flex items-center justify-center">
-                        <UserIcon className="h-5 w-5 lg:h-6 lg:w-6 text-secondary-foreground" />
-                      </div>
-                    )}
                   </div>
-                ))}
+                ) : (
+                  <div className="space-y-6 lg:space-y-8">
+                    {messages.map((msg, idx) => (
+                      <div key={idx} className={`flex gap-3 lg:gap-4 ${msg.role === "user" ? "justify-end" : ""}`}>
+                        {msg.role === "assistant" && (
+                          <div className="h-10 w-10 lg:h-12 lg:w-12 shrink-0 rounded-xl bg-primary/10 flex items-center justify-center">
+                            <MessageSquareIcon className="h-5 w-5 lg:h-6 lg:w-6 text-primary" />
+                          </div>
+                        )}
+                        <div className={`flex-1 max-w-2xl space-y-3`}>
+                          <Card
+                            className={`p-4 lg:p-6 ${
+                              msg.role === "user"
+                                ? "bg-primary text-primary-foreground ml-auto"
+                                : "bg-card text-card-foreground"
+                            }`}
+                          >
+                            <p className="text-base lg:text-lg leading-relaxed whitespace-pre-line">{msg.content}</p>
+                          </Card>
+                          {/* 根拠の見える化：引用元の表示 */}
+                          {msg.sources && msg.sources.length > 0 && (
+                            <Card className="p-4 lg:p-5 bg-muted/50 border-l-4 border-l-primary">
+                              <p className="text-sm font-semibold mb-3 text-muted-foreground flex items-center gap-2">
+                                <FileTextIcon className="h-4 w-4" />
+                                参照した文書
+                              </p>
+                              <div className="space-y-2">
+                                {msg.sources.map((source, i) => (
+                                  <div key={i} className="flex items-start gap-2 text-sm lg:text-base">
+                                    <div className="h-5 w-5 shrink-0 rounded bg-primary/10 flex items-center justify-center mt-0.5">
+                                      <span className="text-xs font-bold text-primary">{i + 1}</span>
+                                    </div>
+                                    <div>
+                                      <span className="font-medium text-foreground">{source.title}</span>
+                                      {source.page && <span className="text-muted-foreground ml-2">（{source.page}）</span>}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </Card>
+                          )}
+                        </div>
+                        {msg.role === "user" && (
+                          <div className="h-10 w-10 lg:h-12 lg:w-12 shrink-0 rounded-xl bg-secondary flex items-center justify-center">
+                            <UserIcon className="h-5 w-5 lg:h-6 lg:w-6 text-secondary-foreground" />
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-        </ScrollArea>
+            </ScrollArea>
 
-        {/* 入力エリア */}
-        <div className="border-t border-border p-4 lg:p-6 bg-card">
-          <div className="max-w-4xl mx-auto">
-            <div className="flex gap-2 lg:gap-3">
-              <Input
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSendMessage()}
-                placeholder="質問を入力してください..."
-                className="flex-1 h-14 lg:h-16 text-base lg:text-lg px-4 lg:px-6"
-              />
-              <Button
-                onClick={toggleRecording}
-                size="icon"
-                variant={isRecording ? "destructive" : "secondary"}
-                className="h-14 w-14 lg:h-16 lg:w-16 shrink-0"
-                title="音声入力"
-              >
-                <MicIcon className={`h-6 w-6 lg:h-7 lg:w-7 ${isRecording ? "animate-pulse" : ""}`} />
-              </Button>
-              <Button
-                onClick={handleSendMessage}
-                size="icon"
-                className="h-14 w-14 lg:h-16 lg:w-16 shrink-0"
-                disabled={!message.trim()}
-                title="送信"
-              >
-                <SendIcon className="h-6 w-6 lg:h-7 lg:w-7" />
-              </Button>
+            {/* 入力エリア */}
+            <div className="border-t border-border p-4 lg:p-6 bg-card">
+              <div className="max-w-4xl mx-auto">
+                <div className="flex gap-2 lg:gap-3">
+                  <Input
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSendMessage()}
+                    placeholder="質問を入力してください..."
+                    className="flex-1 h-14 lg:h-16 text-base lg:text-lg px-4 lg:px-6"
+                  />
+                  <Button
+                    onClick={toggleRecording}
+                    size="icon"
+                    variant={isRecording ? "destructive" : "secondary"}
+                    className="h-14 w-14 lg:h-16 lg:w-16 shrink-0"
+                    title="音声入力"
+                  >
+                    <MicIcon className={`h-6 w-6 lg:h-7 lg:w-7 ${isRecording ? "animate-pulse" : ""}`} />
+                  </Button>
+                  <Button
+                    onClick={handleSendMessage}
+                    size="icon"
+                    className="h-14 w-14 lg:h-16 lg:w-16 shrink-0"
+                    disabled={!message.trim()}
+                    title="送信"
+                  >
+                    <SendIcon className="h-6 w-6 lg:h-7 lg:w-7" />
+                  </Button>
+                </div>
+                <p className="text-xs lg:text-sm text-muted-foreground mt-3 text-center leading-relaxed">
+                  お客様へは、必ず規約や区分所有法に基づいてご回答ください。
+                </p>
+              </div>
             </div>
-            <p className="text-xs lg:text-sm text-muted-foreground mt-3 text-center leading-relaxed">
-              お客様へは、必ず規約や区分所有法に基づいてご回答ください。
-            </p>
-          </div>
+          </section>
+
+          <DocumentPane
+            sources={latestAssistantSources}
+            activeSourceIndex={activeSourceIndex}
+            onSelectSource={setActiveSourceIndex}
+          />
         </div>
       </main>
     </div>
+  )
+}
+
+const documentHighlights: Record<string, HighlightArea[]> = {
+  default: [
+    {
+      id: "waste-rules",
+      label: "第25条 ゴミ出しルール", 
+      top: 18,
+      left: 8,
+      width: 84,
+      height: 6,
+    },
+    {
+      id: "pet-rules",
+      label: "第28条 ペット飼育規約",
+      top: 38,
+      left: 8,
+      width: 84,
+      height: 6,
+    },
+    {
+      id: "minutes-template",
+      label: "議事録作成テンプレート", 
+      top: 58,
+      left: 8,
+      width: 84,
+      height: 5,
+    },
+  ],
+  "ゴミ出しルール（令和5年版）": [
+    {
+      id: "waste-detail",
+      label: "ゴミ出しルール 要点",
+      top: 16,
+      left: 8,
+      width: 84,
+      height: 10,
+    },
+  ],
+  "管理規約": [
+    {
+      id: "management-rules",
+      label: "管理規約 第25条", 
+      top: 20,
+      left: 8,
+      width: 84,
+      height: 6,
+    },
+    {
+      id: "management-pet",
+      label: "管理規約 第28条",
+      top: 36,
+      left: 8,
+      width: 84,
+      height: 6,
+    },
+  ],
+  "ペット飼育規約": [
+    {
+      id: "pet-guideline",
+      label: "ペット飼育規約 抜粋",
+      top: 36,
+      left: 8,
+      width: 84,
+      height: 8,
+    },
+  ],
+  "議事録作成マニュアル": [
+    {
+      id: "minutes-guide",
+      label: "議事録作成テンプレート",
+      top: 56,
+      left: 8,
+      width: 84,
+      height: 8,
+    },
+  ],
+  "回覧文テンプレート集": [
+    {
+      id: "notice-template",
+      label: "お知らせの記載例",
+      top: 52,
+      left: 8,
+      width: 84,
+      height: 8,
+    },
+  ],
+}
+
+const documentUrl = "/sample.pdf"
+
+function DocumentPane({
+  sources,
+  activeSourceIndex,
+  onSelectSource,
+}: {
+  sources?: Message["sources"]
+  activeSourceIndex: number
+  onSelectSource: (index: number) => void
+}) {
+  const activeSource = sources?.[activeSourceIndex]
+  const highlightAreas = documentHighlights[activeSource?.title ?? "default"] ?? documentHighlights.default
+
+  return (
+    <aside className="hidden lg:flex w-[420px] xl:w-[520px] border-l border-border bg-muted/40">
+      <div className="flex flex-col w-full h-full">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border bg-card/70">
+          <div>
+            <p className="text-xs text-muted-foreground">参照資料</p>
+            <p className="text-lg font-semibold text-foreground">{activeSource?.title ?? "管理規約 抜粋"}</p>
+          </div>
+          <Badge variant="secondary" className="uppercase tracking-wide">
+            PC表示
+          </Badge>
+        </div>
+
+        <div className="px-5 py-4 border-b border-border space-y-2">
+          <p className="text-sm text-muted-foreground">チャットで引用した資料を右側で同時に確認できます。</p>
+          <div className="flex flex-wrap gap-2">
+            {sources && sources.length > 0 ? (
+              sources.map((source, index) => (
+                <Button
+                  key={`${source.title}-${index}`}
+                  size="sm"
+                  variant={activeSourceIndex === index ? "default" : "outline"}
+                  onClick={() => onSelectSource(index)}
+                  className="h-8 rounded-full"
+                >
+                  {index + 1}. {source.title}
+                </Button>
+              ))
+            ) : (
+              <span className="text-xs text-muted-foreground">根拠文書を選択するとここに表示されます</span>
+            )}
+          </div>
+        </div>
+
+        <div className="flex-1 min-h-0 p-4">
+          <div className="relative h-full rounded-lg overflow-hidden border border-border bg-background shadow-sm">
+            <object
+              data={`${documentUrl}#page=1&zoom=130`}
+              type="application/pdf"
+              className="h-full w-full"
+            >
+              <p className="p-4 text-sm text-muted-foreground">PDFを表示できませんでした。ダウンロードしてご確認ください。</p>
+            </object>
+            <div className="pointer-events-none absolute inset-0">
+              {highlightAreas.map((area) => (
+                <div
+                  key={area.id}
+                  className={`absolute rounded-md ${area.color ?? "bg-yellow-200/50 ring-2 ring-yellow-400/80"} shadow-lg`}
+                  style={{
+                    top: `${area.top}%`,
+                    left: `${area.left}%`,
+                    width: `${area.width}%`,
+                    height: `${area.height}%`,
+                  }}
+                >
+                  <span className="absolute -bottom-7 left-0 right-0 text-xs font-semibold text-foreground drop-shadow-sm">
+                    {area.label}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground mt-3">
+            PCでは回答と資料を左右に並べて表示し、参照した箇所をハイライトしています。
+          </p>
+        </div>
+      </div>
+    </aside>
   )
 }
