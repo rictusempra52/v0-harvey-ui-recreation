@@ -1,5 +1,6 @@
 import { FileTextIcon, XIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { PdfViewer } from "@/components/pdf-viewer"
 import { ScrollArea } from "@/components/ui/scroll-area"
 
 interface RightPaneProps {
@@ -19,20 +20,25 @@ export function RightPane({ selectedSource, onClose }: RightPaneProps) {
                     <XIcon className="h-4 w-4" />
                 </Button>
             </div>
-            <ScrollArea className="flex-1 p-4">
-                {selectedSource ? (
-                    <div className="space-y-4">
-                        <h3 className="font-bold text-lg border-b pb-2">{selectedSource.title}</h3>
-                        <div className="text-sm leading-relaxed whitespace-pre-wrap text-muted-foreground">
-                            {selectedSource.content || "このドキュメントのプレビューは利用できません。"}
-                        </div>
+            {selectedSource ? (
+                <div className="flex-1 flex flex-col min-h-0">
+                    <div className="p-4 border-b">
+                        <h3 className="font-bold text-lg">{selectedSource.title}</h3>
                     </div>
-                ) : (
+                    <div className="flex-1 min-h-0 relative">
+                        <PdfViewer
+                            url="/sample.pdf"
+                            highlightText={selectedSource.content}
+                        />
+                    </div>
+                </div>
+            ) : (
+                <ScrollArea className="flex-1 p-4">
                     <div className="text-sm text-muted-foreground text-center mt-10">
                         <p>回答の根拠となる規約等がここに表示されます</p>
                     </div>
-                )}
-            </ScrollArea>
+                </ScrollArea>
+            )}
         </aside>
     )
 }
