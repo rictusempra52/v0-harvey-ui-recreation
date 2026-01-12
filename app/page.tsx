@@ -162,7 +162,10 @@ export default function Dashboard() {
       {/* サイドバー（デスクトップ） */}
       <aside className="hidden lg:flex w-72 flex-col border-r border-border bg-sidebar">
         <div className="p-6 border-b border-border">
-          <h1 className="text-2xl font-bold text-sidebar-foreground flex items-center gap-2">
+          <h1
+            className="text-2xl font-bold text-sidebar-foreground flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
+            onClick={() => setMessages([])}
+          >
             <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
               <HomeIcon className="h-5 w-5 text-primary-foreground" />
             </div>
@@ -193,7 +196,7 @@ export default function Dashboard() {
       </aside>
 
       {/* メインコンテンツ */}
-      <main className="flex-1 flex flex-col">
+      <main className="flex-1 flex flex-col overflow-hidden">
         {/* ヘッダー（モバイル） */}
         <header className="lg:hidden h-16 border-b border-border px-4 flex items-center justify-between bg-card">
           <div className="flex items-center gap-3">
@@ -205,7 +208,7 @@ export default function Dashboard() {
         </header>
 
         {/* チャットエリア */}
-        <ScrollArea className="flex-1 p-4 lg:p-8">
+        <ScrollArea className="flex-1 min-h-0 p-4 pb-0 lg:p-8 lg:pb-0">
           <div className="max-w-4xl mx-auto">
             {messages.length === 0 ? (
               <div className="space-y-8">
@@ -258,11 +261,10 @@ export default function Dashboard() {
                     )}
                     <div className={`flex-1 max-w-2xl space-y-3`}>
                       <Card
-                        className={`p-4 lg:p-6 ${
-                          msg.role === "user"
-                            ? "bg-primary text-primary-foreground ml-auto"
-                            : "bg-card text-card-foreground"
-                        }`}
+                        className={`p-4 lg:p-6 ${msg.role === "user"
+                          ? "bg-primary text-primary-foreground ml-auto"
+                          : "bg-card text-card-foreground"
+                          }`}
                       >
                         <p className="text-base lg:text-lg leading-relaxed whitespace-pre-line">{msg.content}</p>
                       </Card>
