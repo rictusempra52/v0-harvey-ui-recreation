@@ -33,13 +33,14 @@ type Scenario = {
 type Message = {
   role: "user" | "assistant"
   content: string
-  sources?: Array<{ title: string; page?: string }>
+  sources?: Array<{ title: string; page?: string; content?: string }>
 }
 
 export default function Dashboard() {
   const [message, setMessage] = useState("")
   const [messages, setMessages] = useState<Message[]>([])
   const [isRecording, setIsRecording] = useState(false)
+  const [selectedSource, setSelectedSource] = useState<{ title: string; content?: string } | null>(null)
 
   const scenarios: Scenario[] = [
     {
@@ -138,8 +139,18 @@ export default function Dashboard() {
           content:
             "ご質問ありがとうございます。該当する情報を確認いたしました。管理規約および過去の事例に基づき、以下の通りご案内いたします。詳細は引用元の文書をご確認ください。",
           sources: [
-            { title: "管理規約", page: "関連条文" },
-            { title: "過去の議事録", page: "令和4年度" },
+            {
+              title: "管理規約",
+              page: "関連条文",
+              content:
+                "【管理規約 第○条】\n専有部分の修繕等\n区分所有者は、その専有部分について、修繕、模様替え又は建物に定着する物件の取り付け若しくは取り替え（以下「修繕等」という。）を行おうとするときは、あらかじめ、理事長にその旨を申請し、書面による承認を受けなければならない。\n\n2 前項の申請には、設計図、仕様書及び工程表を添付しなければならない。",
+            },
+            {
+              title: "過去の議事録",
+              page: "令和4年度",
+              content:
+                "【令和4年度 第3回理事会議事録】\n議題2：専有部分のリフォーム申請について\n\n××号室より提出されたフローリング張替え工事申請について審議し、遮音等級L-45以上の製品を使用することを条件に承認することとした。",
+            },
           ],
         }
         setMessages((prev) => [...prev, assistantMessage])
@@ -278,12 +289,18 @@ export default function Dashboard() {
                           </p>
                           <div className="space-y-2">
                             {msg.sources.map((source, i) => (
-                              <div key={i} className="flex items-start gap-2 text-sm lg:text-base">
+                              <div
+                                key={i}
+                                className="flex items-start gap-2 text-sm lg:text-base cursor-pointer hover:bg-black/5 p-1 rounded transition-colors"
+                                onClick={() => setSelectedSource(source)}
+                              >
                                 <div className="h-5 w-5 shrink-0 rounded bg-primary/10 flex items-center justify-center mt-0.5">
                                   <span className="text-xs font-bold text-primary">{i + 1}</span>
                                 </div>
                                 <div>
-                                  <span className="font-medium text-foreground">{source.title}</span>
+                                  <span className="font-medium text-foreground underline decoration-primary/30 underline-offset-4">
+                                    {source.title}
+                                  </span>
                                   {source.page && <span className="text-muted-foreground ml-2">（{source.page}）</span>}
                                 </div>
                               </div>
@@ -342,7 +359,7 @@ export default function Dashboard() {
       </main>
 
       {/* 右サイドバー（引用表示） */}
-      <RightPane />
+      <RightPane selectedSource={selectedSource} onClose={() => setSelectedSource(null)} />
     </div>
   )
 }
