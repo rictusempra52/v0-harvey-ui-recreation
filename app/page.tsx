@@ -20,6 +20,7 @@ import {
   HistoryIcon,
   SettingsIcon,
 } from "lucide-react"
+import { RightPane } from "@/components/right-pane"
 
 type Scenario = {
   id: string
@@ -339,6 +340,9 @@ export default function Dashboard() {
           </div>
         </div>
       </main>
+
+      {/* 右サイドバー（引用表示） */}
+      <RightPane />
     </div>
   )
 }
