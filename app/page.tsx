@@ -20,6 +20,11 @@ import {
   HistoryIcon,
   SettingsIcon,
 } from "lucide-react"
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from "@/components/ui/resizable"
 import { RightPane } from "@/components/right-pane"
 
 type Scenario = {
@@ -170,9 +175,9 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="flex h-screen bg-background">
+    <ResizablePanelGroup direction="horizontal" className="h-screen bg-background text-foreground">
       {/* サイドバー（デスクトップ） */}
-      <aside className="hidden lg:flex w-72 flex-col border-r border-border bg-sidebar">
+      <ResizablePanel defaultSize={20} minSize={15} maxSize={30} className="hidden lg:flex flex-col border-r border-border bg-sidebar">
         <div className="p-6 border-b border-border">
           <h1
             className="text-2xl font-bold text-sidebar-foreground flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
@@ -205,161 +210,169 @@ export default function Dashboard() {
             <p className="text-xs text-muted-foreground">大きなボタンをタップするか、マイクボタンで音声入力できます</p>
           </Card>
         </div>
-      </aside>
+      </ResizablePanel>
+
+      <ResizableHandle withHandle className="hidden lg:flex" />
 
       {/* メインコンテンツ */}
-      <main className="flex-1 flex flex-col overflow-hidden">
-        {/* ヘッダー（モバイル） */}
-        <header className="lg:hidden h-16 border-b border-border px-4 flex items-center justify-between bg-card">
-          <div className="flex items-center gap-3">
-            <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
-              <HomeIcon className="h-5 w-5 text-primary-foreground" />
-            </div>
-            <h1 className="text-lg font-bold text-foreground">シメスくん</h1>
-          </div>
-        </header>
-
-        {/* チャットエリア */}
-        <ScrollArea className="flex-1 min-h-0 p-4 pb-0 lg:p-8 lg:pb-0">
-          <div className="max-w-4xl mx-auto">
-            {messages.length === 0 ? (
-              <div className="space-y-8">
-                {/* ウェルカムメッセージ */}
-                <div className="text-center space-y-4 py-8">
-                  <div className="inline-flex h-20 w-20 lg:h-24 lg:w-24 items-center justify-center rounded-2xl bg-primary/10">
-                    <MessageSquareIcon className="h-10 w-10 lg:h-12 lg:w-12 text-primary" />
-                  </div>
-                  <h2 className="text-2xl lg:text-4xl font-bold text-foreground text-balance">
-                    マンション管理の業務を
-                    <br />
-                    サポートします
-                  </h2>
-                  <p className="text-base lg:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-                    議事録作成、回覧文作成、入居者対応など
-                    <br />
-                    日々の業務をAIがお手伝いします
-                  </p>
-                </div>
-
-                {/* 業務シナリオボタン */}
-                <div className="grid sm:grid-cols-2 gap-4 lg:gap-6">
-                  {scenarios.map((scenario) => (
-                    <Card
-                      key={scenario.id}
-                      className={`p-6 lg:p-8 cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98] ${scenario.color} border-2`}
-                      onClick={() => handleScenarioClick(scenario)}
-                    >
-                      <div className="flex flex-col items-start gap-4">
-                        <div className="h-16 w-16 lg:h-20 lg:w-20 rounded-2xl bg-background/50 flex items-center justify-center">
-                          {scenario.icon}
-                        </div>
-                        <div>
-                          <h3 className="text-xl lg:text-2xl font-bold mb-2">{scenario.title}</h3>
-                          <p className="text-sm lg:text-base opacity-90 leading-relaxed">{scenario.description}</p>
-                        </div>
-                      </div>
-                    </Card>
-                  ))}
-                </div>
+      <ResizablePanel defaultSize={55} minSize={30}>
+        <main className="flex h-full flex-col overflow-hidden">
+          {/* ヘッダー（モバイル） */}
+          <header className="lg:hidden h-16 border-b border-border px-4 flex items-center justify-between bg-card">
+            <div className="flex items-center gap-3">
+              <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
+                <HomeIcon className="h-5 w-5 text-primary-foreground" />
               </div>
-            ) : (
-              <div className="space-y-6 lg:space-y-8">
-                {messages.map((msg, idx) => (
-                  <div key={idx} className={`flex gap-3 lg:gap-4 ${msg.role === "user" ? "justify-end" : ""}`}>
-                    {msg.role === "assistant" && (
-                      <div className="h-10 w-10 lg:h-12 lg:w-12 shrink-0 rounded-xl bg-primary/10 flex items-center justify-center">
-                        <MessageSquareIcon className="h-5 w-5 lg:h-6 lg:w-6 text-primary" />
-                      </div>
-                    )}
-                    <div className={`flex-1 max-w-2xl space-y-3`}>
+              <h1 className="text-lg font-bold text-foreground">シメスくん</h1>
+            </div>
+          </header>
+
+          {/* チャットエリア */}
+          <ScrollArea className="flex-1 min-h-0 p-4 pb-0 lg:p-8 lg:pb-0">
+            <div className="max-w-4xl mx-auto">
+              {messages.length === 0 ? (
+                <div className="space-y-8">
+                  {/* ウェルカムメッセージ */}
+                  <div className="text-center space-y-4 py-8">
+                    <div className="inline-flex h-20 w-20 lg:h-24 lg:w-24 items-center justify-center rounded-2xl bg-primary/10">
+                      <MessageSquareIcon className="h-10 w-10 lg:h-12 lg:w-12 text-primary" />
+                    </div>
+                    <h2 className="text-2xl lg:text-4xl font-bold text-foreground text-balance">
+                      マンション管理の業務を
+                      <br />
+                      サポートします
+                    </h2>
+                    <p className="text-base lg:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
+                      議事録作成、回覧文作成、入居者対応など
+                      <br />
+                      日々の業務をAIがお手伝いします
+                    </p>
+                  </div>
+
+                  {/* 業務シナリオボタン */}
+                  <div className="grid sm:grid-cols-2 gap-4 lg:gap-6">
+                    {scenarios.map((scenario) => (
                       <Card
-                        className={`p-4 lg:p-6 ${msg.role === "user"
-                          ? "bg-primary text-primary-foreground ml-auto"
-                          : "bg-card text-card-foreground"
-                          }`}
+                        key={scenario.id}
+                        className={`p-6 lg:p-8 cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98] ${scenario.color} border-2`}
+                        onClick={() => handleScenarioClick(scenario)}
                       >
-                        <p className="text-base lg:text-lg leading-relaxed whitespace-pre-line">{msg.content}</p>
-                      </Card>
-                      {/* 根拠の見える化：引用元の表示 */}
-                      {msg.sources && msg.sources.length > 0 && (
-                        <Card className="p-4 lg:p-5 bg-muted/50 border-l-4 border-l-primary">
-                          <p className="text-sm font-semibold mb-3 text-muted-foreground flex items-center gap-2">
-                            <FileTextIcon className="h-4 w-4" />
-                            参照した文書
-                          </p>
-                          <div className="space-y-2">
-                            {msg.sources.map((source, i) => (
-                              <div
-                                key={i}
-                                className="flex items-start gap-2 text-sm lg:text-base cursor-pointer hover:bg-black/5 p-1 rounded transition-colors"
-                                onClick={() => setSelectedSource(source)}
-                              >
-                                <div className="h-5 w-5 shrink-0 rounded bg-primary/10 flex items-center justify-center mt-0.5">
-                                  <span className="text-xs font-bold text-primary">{i + 1}</span>
-                                </div>
-                                <div>
-                                  <span className="font-medium text-foreground underline decoration-primary/30 underline-offset-4">
-                                    {source.title}
-                                  </span>
-                                  {source.page && <span className="text-muted-foreground ml-2">（{source.page}）</span>}
-                                </div>
-                              </div>
-                            ))}
+                        <div className="flex flex-col items-start gap-4">
+                          <div className="h-16 w-16 lg:h-20 lg:w-20 rounded-2xl bg-background/50 flex items-center justify-center">
+                            {scenario.icon}
                           </div>
+                          <div>
+                            <h3 className="text-xl lg:text-2xl font-bold mb-2">{scenario.title}</h3>
+                            <p className="text-sm lg:text-base opacity-90 leading-relaxed">{scenario.description}</p>
+                          </div>
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-6 lg:space-y-8">
+                  {messages.map((msg, idx) => (
+                    <div key={idx} className={`flex gap-3 lg:gap-4 ${msg.role === "user" ? "justify-end" : ""}`}>
+                      {msg.role === "assistant" && (
+                        <div className="h-10 w-10 lg:h-12 lg:w-12 shrink-0 rounded-xl bg-primary/10 flex items-center justify-center">
+                          <MessageSquareIcon className="h-5 w-5 lg:h-6 lg:w-6 text-primary" />
+                        </div>
+                      )}
+                      <div className={`flex-1 max-w-2xl space-y-3`}>
+                        <Card
+                          className={`p-4 lg:p-6 ${msg.role === "user"
+                            ? "bg-primary text-primary-foreground ml-auto"
+                            : "bg-card text-card-foreground"
+                            }`}
+                        >
+                          <p className="text-base lg:text-lg leading-relaxed whitespace-pre-line">{msg.content}</p>
                         </Card>
+                        {/* 根拠の見える化：引用元の表示 */}
+                        {msg.sources && msg.sources.length > 0 && (
+                          <Card className="p-4 lg:p-5 bg-muted/50 border-l-4 border-l-primary">
+                            <p className="text-sm font-semibold mb-3 text-muted-foreground flex items-center gap-2">
+                              <FileTextIcon className="h-4 w-4" />
+                              参照した文書
+                            </p>
+                            <div className="space-y-2">
+                              {msg.sources.map((source, i) => (
+                                <div
+                                  key={i}
+                                  className="flex items-start gap-2 text-sm lg:text-base cursor-pointer hover:bg-black/5 p-1 rounded transition-colors"
+                                  onClick={() => setSelectedSource(source)}
+                                >
+                                  <div className="h-5 w-5 shrink-0 rounded bg-primary/10 flex items-center justify-center mt-0.5">
+                                    <span className="text-xs font-bold text-primary">{i + 1}</span>
+                                  </div>
+                                  <div>
+                                    <span className="font-medium text-foreground underline decoration-primary/30 underline-offset-4">
+                                      {source.title}
+                                    </span>
+                                    {source.page && <span className="text-muted-foreground ml-2">（{source.page}）</span>}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </Card>
+                        )}
+                      </div>
+                      {msg.role === "user" && (
+                        <div className="h-10 w-10 lg:h-12 lg:w-12 shrink-0 rounded-xl bg-secondary flex items-center justify-center">
+                          <UserIcon className="h-5 w-5 lg:h-6 lg:w-6 text-secondary-foreground" />
+                        </div>
                       )}
                     </div>
-                    {msg.role === "user" && (
-                      <div className="h-10 w-10 lg:h-12 lg:w-12 shrink-0 rounded-xl bg-secondary flex items-center justify-center">
-                        <UserIcon className="h-5 w-5 lg:h-6 lg:w-6 text-secondary-foreground" />
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </ScrollArea>
-
-        {/* 入力エリア */}
-        <div className="border-t border-border p-4 lg:p-6 bg-card">
-          <div className="max-w-4xl mx-auto">
-            <div className="flex gap-2 lg:gap-3">
-              <Input
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSendMessage()}
-                placeholder="質問を入力してください..."
-                className="flex-1 h-14 lg:h-16 text-base lg:text-lg px-4 lg:px-6"
-              />
-              <Button
-                onClick={toggleRecording}
-                size="icon"
-                variant={isRecording ? "destructive" : "secondary"}
-                className="h-14 w-14 lg:h-16 lg:w-16 shrink-0"
-                title="音声入力"
-              >
-                <MicIcon className={`h-6 w-6 lg:h-7 lg:w-7 ${isRecording ? "animate-pulse" : ""}`} />
-              </Button>
-              <Button
-                onClick={handleSendMessage}
-                size="icon"
-                className="h-14 w-14 lg:h-16 lg:w-16 shrink-0"
-                disabled={!message.trim()}
-                title="送信"
-              >
-                <SendIcon className="h-6 w-6 lg:h-7 lg:w-7" />
-              </Button>
+                  ))}
+                </div>
+              )}
             </div>
-            <p className="text-xs lg:text-sm text-muted-foreground mt-3 text-center leading-relaxed">
-              お客様へは、必ず規約や区分所有法に基づいてご回答ください。
-            </p>
+          </ScrollArea>
+
+          {/* 入力エリア */}
+          <div className="border-t border-border p-4 lg:p-6 bg-card">
+            <div className="max-w-4xl mx-auto">
+              <div className="flex gap-2 lg:gap-3">
+                <Input
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSendMessage()}
+                  placeholder="質問を入力してください..."
+                  className="flex-1 h-14 lg:h-16 text-base lg:text-lg px-4 lg:px-6"
+                />
+                <Button
+                  onClick={toggleRecording}
+                  size="icon"
+                  variant={isRecording ? "destructive" : "secondary"}
+                  className="h-14 w-14 lg:h-16 lg:w-16 shrink-0"
+                  title="音声入力"
+                >
+                  <MicIcon className={`h-6 w-6 lg:h-7 lg:w-7 ${isRecording ? "animate-pulse" : ""}`} />
+                </Button>
+                <Button
+                  onClick={handleSendMessage}
+                  size="icon"
+                  className="h-14 w-14 lg:h-16 lg:w-16 shrink-0"
+                  disabled={!message.trim()}
+                  title="送信"
+                >
+                  <SendIcon className="h-6 w-6 lg:h-7 lg:w-7" />
+                </Button>
+              </div>
+              <p className="text-xs lg:text-sm text-muted-foreground mt-3 text-center leading-relaxed">
+                お客様へは、必ず規約や区分所有法に基づいてご回答ください。
+              </p>
+            </div>
           </div>
-        </div>
-      </main>
+        </main>
+      </ResizablePanel>
+
+      <ResizableHandle withHandle className="hidden xl:flex" />
 
       {/* 右サイドバー（引用表示） */}
-      <RightPane selectedSource={selectedSource} onClose={() => setSelectedSource(null)} />
-    </div>
+      <ResizablePanel defaultSize={25} minSize={20} maxSize={40} className="hidden xl:flex bg-sidebar border-l border-border">
+        <RightPane selectedSource={selectedSource} onClose={() => setSelectedSource(null)} />
+      </ResizablePanel>
+    </ResizablePanelGroup>
   )
 }

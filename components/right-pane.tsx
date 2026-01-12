@@ -9,7 +9,7 @@ interface RightPaneProps {
 
 export function RightPane({ selectedSource, onClose }: RightPaneProps) {
     return (
-        <aside className="hidden xl:flex w-80 flex-col border-l border-border bg-sidebar h-full">
+        <aside className="flex flex-col h-full w-full overflow-hidden">
             <div className="p-4 border-b border-border flex items-center justify-between shrink-0">
                 <h2 className="text-sm font-semibold flex items-center gap-2">
                     <FileTextIcon className="h-4 w-4" />
