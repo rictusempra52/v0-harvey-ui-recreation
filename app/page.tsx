@@ -175,7 +175,7 @@ export default function Dashboard() {
   }
 
   return (
-    <ResizablePanelGroup direction="horizontal" className="h-screen bg-background text-foreground">
+    <ResizablePanelGroup direction="horizontal" className="h-dvh bg-background text-foreground">
       {/* サイドバー（デスクトップ） */}
       <ResizablePanel defaultSize={20} minSize={15} maxSize={30} className="hidden lg:flex flex-col border-r border-border bg-sidebar">
         <div className="p-6 border-b border-border">
