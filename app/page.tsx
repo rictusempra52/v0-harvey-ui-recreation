@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/resizable"
 import { RightPane } from "@/components/right-pane"
 import { MansionSelector } from "@/components/mansion-selector"
+import { HistoryView } from "@/components/history-view"
 
 
 type Scenario = {
@@ -49,6 +50,7 @@ export default function Dashboard() {
   const [isRecording, setIsRecording] = useState(false)
   const [selectedSource, setSelectedSource] = useState<{ title: string; content?: string } | null>(null)
   const [selectedMansion, setSelectedMansion] = useState("")
+  const [currentView, setCurrentView] = useState<"home" | "history">("home")
 
 
   const scenarios: Scenario[] = [
@@ -195,11 +197,19 @@ export default function Dashboard() {
           <p className="text-sm text-muted-foreground mt-1">マンション管理AIアシスタント</p>
         </div>
         <nav className="flex-1 p-4 space-y-2">
-          <Button variant="secondary" className="w-full justify-start text-base h-12">
+          <Button
+            variant={currentView === "home" ? "secondary" : "ghost"}
+            className="w-full justify-start text-base h-12"
+            onClick={() => setCurrentView("home")}
+          >
             <HomeIcon className="h-5 w-5 mr-3" />
             ホーム
           </Button>
-          <Button variant="ghost" className="w-full justify-start text-base h-12">
+          <Button
+            variant={currentView === "history" ? "secondary" : "ghost"}
+            className="w-full justify-start text-base h-12"
+            onClick={() => setCurrentView("history")}
+          >
             <HistoryIcon className="h-5 w-5 mr-3" />
             過去の履歴
           </Button>
@@ -229,143 +239,164 @@ export default function Dashboard() {
               </div>
               <h1 className="text-lg font-bold text-foreground">シメスくん</h1>
             </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setCurrentView(currentView === "home" ? "history" : "home")}
+                title={currentView === "home" ? "履歴を表示" : "ホームに戻る"}
+              >
+                {currentView === "home" ? (
+                  <HistoryIcon className="h-6 w-6" />
+                ) : (
+                  <HomeIcon className="h-6 w-6" />
+                )}
+              </Button>
+            </div>
           </header>
 
-          {/* チャットエリア */}
-          <ScrollArea className="flex-1 min-h-0 p-4 pb-0 lg:p-8 lg:pb-0">
-            <div className="max-w-4xl mx-auto">
-              {messages.length === 0 ? (
-                <div className="space-y-8">
-                  {/* ウェルカムメッセージ */}
-                  <div className="text-center space-y-2 py-0">
-                    <div className="inline-flex h-20 w-20 lg:h-24 lg:w-24 items-center justify-center rounded-2xl bg-primary/10">
-                      <MessageSquareIcon className="h-10 w-10 lg:h-12 lg:w-12 text-primary" />
+          {/* チャットエリア または 履歴エリア */}
+          <div className="flex-1 min-h-0 flex flex-col">
+            {currentView === "home" ? (
+              <>
+                <ScrollArea className="flex-1 h-full p-4 pb-0 lg:p-8 lg:pb-0">
+                  <div className="max-w-4xl mx-auto">
+                    {messages.length === 0 ? (
+                      <div className="space-y-8">
+                        {/* ウェルカムメッセージ */}
+                        <div className="text-center space-y-2 py-0">
+                          <div className="inline-flex h-20 w-20 lg:h-24 lg:w-24 items-center justify-center rounded-2xl bg-primary/10">
+                            <MessageSquareIcon className="h-10 w-10 lg:h-12 lg:w-12 text-primary" />
+                          </div>
+                          <h2 className="text-2xl lg:text-4xl font-bold text-foreground text-balance">
+                            フロント業務をお助けします
+                          </h2>
+                          <p className="text-base lg:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
+                            マンション名とやりたいことを選んでみてください
+                          </p>
+                        </div>
+                        {/* マンション選択・検索ボックス */}
+                        <MansionSelector onSelect={setSelectedMansion} />
+
+
+                        {/* 業務シナリオボタン */}
+                        <div className="grid sm:grid-cols-2 gap-4 lg:gap-6">
+                          {scenarios.map((scenario) => (
+                            <Card
+                              key={scenario.id}
+                              className={`p-6 lg:p-8 cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98] ${scenario.color} border-2`}
+                              onClick={() => handleScenarioClick(scenario)}
+                            >
+                              <div className="flex flex-col items-start gap-4">
+                                <div className="h-16 w-16 lg:h-20 lg:w-20 rounded-2xl bg-background/50 flex items-center justify-center">
+                                  {scenario.icon}
+                                </div>
+                                <div>
+                                  <h3 className="text-xl lg:text-2xl font-bold mb-2">{scenario.title}</h3>
+                                  <p className="text-sm lg:text-base opacity-90 leading-relaxed">{scenario.description}</p>
+                                </div>
+                              </div>
+                            </Card>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-6 lg:space-y-8">
+                        {messages.map((msg, idx) => (
+                          <div key={idx} className={`flex gap-3 lg:gap-4 ${msg.role === "user" ? "justify-end" : ""}`}>
+                            {msg.role === "assistant" && (
+                              <div className="h-10 w-10 lg:h-12 lg:w-12 shrink-0 rounded-xl bg-primary/10 flex items-center justify-center">
+                                <MessageSquareIcon className="h-5 w-5 lg:h-6 lg:w-6 text-primary" />
+                              </div>
+                            )}
+                            <div className={`flex-1 max-w-2xl space-y-3`}>
+                              <Card
+                                className={`p-4 lg:p-6 ${msg.role === "user"
+                                  ? "bg-primary text-primary-foreground ml-auto"
+                                  : "bg-card text-card-foreground"
+                                  }`}
+                              >
+                                <p className="text-base lg:text-lg leading-relaxed whitespace-pre-line">{msg.content}</p>
+                              </Card>
+                              {/* 根拠の見える化：引用元の表示 */}
+                              {msg.sources && msg.sources.length > 0 && (
+                                <Card className="p-4 lg:p-5 bg-muted/50 border-l-4 border-l-primary">
+                                  <p className="text-sm font-semibold mb-3 text-muted-foreground flex items-center gap-2">
+                                    <FileTextIcon className="h-4 w-4" />
+                                    参照した文書
+                                  </p>
+                                  <div className="space-y-2">
+                                    {msg.sources.map((source, i) => (
+                                      <div
+                                        key={i}
+                                        className="flex items-start gap-2 text-sm lg:text-base cursor-pointer hover:bg-black/5 p-1 rounded transition-colors"
+                                        onClick={() => setSelectedSource(source)}
+                                      >
+                                        <div className="h-5 w-5 shrink-0 rounded bg-primary/10 flex items-center justify-center mt-0.5">
+                                          <span className="text-xs font-bold text-primary">{i + 1}</span>
+                                        </div>
+                                        <div>
+                                          <span className="font-medium text-foreground underline decoration-primary/30 underline-offset-4">
+                                            {source.title}
+                                          </span>
+                                          {source.page && <span className="text-muted-foreground ml-2">（{source.page}）</span>}
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </Card>
+                              )}
+                            </div>
+                            {msg.role === "user" && (
+                              <div className="h-10 w-10 lg:h-12 lg:w-12 shrink-0 rounded-xl bg-secondary flex items-center justify-center">
+                                <UserIcon className="h-5 w-5 lg:h-6 lg:w-6 text-secondary-foreground" />
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </ScrollArea>
+                {/* 入力エリア */}
+                <div className="border-t border-border p-4 lg:p-6 bg-card">
+                  <div className="max-w-4xl mx-auto">
+                    <div className="flex gap-2 lg:gap-3">
+                      <Input
+                        value={message}
+                        onChange={(e) => setMessage(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSendMessage()}
+                        placeholder="質問を入力してください..."
+                        className="flex-1 h-14 lg:h-16 text-base lg:text-lg px-4 lg:px-6"
+                      />
+                      <Button
+                        onClick={toggleRecording}
+                        size="icon"
+                        variant={isRecording ? "destructive" : "secondary"}
+                        className="h-14 w-14 lg:h-16 lg:w-16 shrink-0"
+                        title="音声入力"
+                      >
+                        <MicIcon className={`h-6 w-6 lg:h-7 lg:w-7 ${isRecording ? "animate-pulse" : ""}`} />
+                      </Button>
+                      <Button
+                        onClick={handleSendMessage}
+                        size="icon"
+                        className="h-14 w-14 lg:h-16 lg:w-16 shrink-0"
+                        disabled={!message.trim()}
+                        title="送信"
+                      >
+                        <SendIcon className="h-6 w-6 lg:h-7 lg:w-7" />
+                      </Button>
                     </div>
-                    <h2 className="text-2xl lg:text-4xl font-bold text-foreground text-balance">
-                      フロント業務をお助けします
-                    </h2>
-                    <p className="text-base lg:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-                      マンション名とやりたいことを選んでみてください
+                    <p className="text-xs lg:text-sm text-muted-foreground mt-3 text-center leading-relaxed">
+                      お客様へは、必ず規約や区分所有法に基づいてご回答ください。
                     </p>
                   </div>
-                  {/* マンション選択・検索ボックス */}
-                  <MansionSelector onSelect={setSelectedMansion} />
-
-
-                  {/* 業務シナリオボタン */}
-                  <div className="grid sm:grid-cols-2 gap-4 lg:gap-6">
-                    {scenarios.map((scenario) => (
-                      <Card
-                        key={scenario.id}
-                        className={`p-6 lg:p-8 cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98] ${scenario.color} border-2`}
-                        onClick={() => handleScenarioClick(scenario)}
-                      >
-                        <div className="flex flex-col items-start gap-4">
-                          <div className="h-16 w-16 lg:h-20 lg:w-20 rounded-2xl bg-background/50 flex items-center justify-center">
-                            {scenario.icon}
-                          </div>
-                          <div>
-                            <h3 className="text-xl lg:text-2xl font-bold mb-2">{scenario.title}</h3>
-                            <p className="text-sm lg:text-base opacity-90 leading-relaxed">{scenario.description}</p>
-                          </div>
-                        </div>
-                      </Card>
-                    ))}
-                  </div>
                 </div>
-              ) : (
-                <div className="space-y-6 lg:space-y-8">
-                  {messages.map((msg, idx) => (
-                    <div key={idx} className={`flex gap-3 lg:gap-4 ${msg.role === "user" ? "justify-end" : ""}`}>
-                      {msg.role === "assistant" && (
-                        <div className="h-10 w-10 lg:h-12 lg:w-12 shrink-0 rounded-xl bg-primary/10 flex items-center justify-center">
-                          <MessageSquareIcon className="h-5 w-5 lg:h-6 lg:w-6 text-primary" />
-                        </div>
-                      )}
-                      <div className={`flex-1 max-w-2xl space-y-3`}>
-                        <Card
-                          className={`p-4 lg:p-6 ${msg.role === "user"
-                            ? "bg-primary text-primary-foreground ml-auto"
-                            : "bg-card text-card-foreground"
-                            }`}
-                        >
-                          <p className="text-base lg:text-lg leading-relaxed whitespace-pre-line">{msg.content}</p>
-                        </Card>
-                        {/* 根拠の見える化：引用元の表示 */}
-                        {msg.sources && msg.sources.length > 0 && (
-                          <Card className="p-4 lg:p-5 bg-muted/50 border-l-4 border-l-primary">
-                            <p className="text-sm font-semibold mb-3 text-muted-foreground flex items-center gap-2">
-                              <FileTextIcon className="h-4 w-4" />
-                              参照した文書
-                            </p>
-                            <div className="space-y-2">
-                              {msg.sources.map((source, i) => (
-                                <div
-                                  key={i}
-                                  className="flex items-start gap-2 text-sm lg:text-base cursor-pointer hover:bg-black/5 p-1 rounded transition-colors"
-                                  onClick={() => setSelectedSource(source)}
-                                >
-                                  <div className="h-5 w-5 shrink-0 rounded bg-primary/10 flex items-center justify-center mt-0.5">
-                                    <span className="text-xs font-bold text-primary">{i + 1}</span>
-                                  </div>
-                                  <div>
-                                    <span className="font-medium text-foreground underline decoration-primary/30 underline-offset-4">
-                                      {source.title}
-                                    </span>
-                                    {source.page && <span className="text-muted-foreground ml-2">（{source.page}）</span>}
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </Card>
-                        )}
-                      </div>
-                      {msg.role === "user" && (
-                        <div className="h-10 w-10 lg:h-12 lg:w-12 shrink-0 rounded-xl bg-secondary flex items-center justify-center">
-                          <UserIcon className="h-5 w-5 lg:h-6 lg:w-6 text-secondary-foreground" />
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </ScrollArea>
-
-          {/* 入力エリア */}
-          <div className="border-t border-border p-4 lg:p-6 bg-card">
-            <div className="max-w-4xl mx-auto">
-              <div className="flex gap-2 lg:gap-3">
-                <Input
-                  value={message}
-                  onChange={(e) => setMessage(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSendMessage()}
-                  placeholder="質問を入力してください..."
-                  className="flex-1 h-14 lg:h-16 text-base lg:text-lg px-4 lg:px-6"
-                />
-                <Button
-                  onClick={toggleRecording}
-                  size="icon"
-                  variant={isRecording ? "destructive" : "secondary"}
-                  className="h-14 w-14 lg:h-16 lg:w-16 shrink-0"
-                  title="音声入力"
-                >
-                  <MicIcon className={`h-6 w-6 lg:h-7 lg:w-7 ${isRecording ? "animate-pulse" : ""}`} />
-                </Button>
-                <Button
-                  onClick={handleSendMessage}
-                  size="icon"
-                  className="h-14 w-14 lg:h-16 lg:w-16 shrink-0"
-                  disabled={!message.trim()}
-                  title="送信"
-                >
-                  <SendIcon className="h-6 w-6 lg:h-7 lg:w-7" />
-                </Button>
-              </div>
-              <p className="text-xs lg:text-sm text-muted-foreground mt-3 text-center leading-relaxed">
-                お客様へは、必ず規約や区分所有法に基づいてご回答ください。
-              </p>
-            </div>
+              </>
+            ) : (
+              <HistoryView />
+            )}
           </div>
         </main>
       </ResizablePanel>
