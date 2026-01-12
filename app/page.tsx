@@ -395,7 +395,10 @@ export default function Dashboard() {
                 </div>
               </>
             ) : (
-              <HistoryView />
+              <HistoryView onSelect={(historyMessages) => {
+                setMessages(historyMessages)
+                setCurrentView("home")
+              }} />
             )}
           </div>
         </main>

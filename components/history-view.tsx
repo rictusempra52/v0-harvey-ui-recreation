@@ -7,6 +7,12 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 
+type Message = {
+    role: "user" | "assistant"
+    content: string
+    sources?: Array<{ title: string; page?: string; content?: string }>
+}
+
 type HistoryItem = {
     id: string
     title: string
@@ -33,7 +39,26 @@ const dummyHistory: HistoryItem[] = Array.from({ length: 20 }, (_, i) => ({
     preview: "過去のやり取りのサンプルテキストです。スクロールして内容を確認できるかテストしています。高齢者の方でも読みやすいよう、リストの各項目はゆったりとした余白を持たせています。",
 }))
 
-export function HistoryView() {
+type HistoryViewProps = {
+    onSelect: (messages: Message[]) => void
+}
+
+export function HistoryView({ onSelect }: HistoryViewProps) {
+    const handleSelect = (item: HistoryItem) => {
+        // デモ用に、選択された項目に応じたチャット履歴を生成
+        const historyMessages: Message[] = [
+            { role: "user", content: `${item.mansion}について、${item.title}をお願いします。` },
+            {
+                role: "assistant",
+                content: `${item.preview}\n\n詳細な内容は、当時の記録に基づきこちらに再現されています。`,
+                sources: [
+                    { title: "過去の参照文書", page: "p.1" }
+                ]
+            }
+        ]
+        onSelect(historyMessages)
+    }
+
     return (
         <div className="flex flex-col h-full bg-background overflow-hidden">
             <div className="shrink-0 p-4 lg:p-8 border-b border-border space-y-4">
@@ -53,6 +78,7 @@ export function HistoryView() {
                         <Card
                             key={item.id}
                             className="p-4 lg:p-6 cursor-pointer hover:bg-accent/50 transition-colors border-border/50 group"
+                            onClick={() => handleSelect(item)}
                         >
                             <div className="flex items-center justify-between gap-4">
                                 <div className="flex-1 min-w-0 space-y-1">
