@@ -26,6 +26,8 @@ import {
   ResizablePanelGroup,
 } from "@/components/ui/resizable"
 import { RightPane } from "@/components/right-pane"
+import { MansionSelector } from "@/components/mansion-selector"
+
 
 type Scenario = {
   id: string
@@ -46,6 +48,8 @@ export default function Dashboard() {
   const [messages, setMessages] = useState<Message[]>([])
   const [isRecording, setIsRecording] = useState(false)
   const [selectedSource, setSelectedSource] = useState<{ title: string; content?: string } | null>(null)
+  const [selectedMansion, setSelectedMansion] = useState("")
+
 
   const scenarios: Scenario[] = [
     {
@@ -245,15 +249,8 @@ export default function Dashboard() {
                     </p>
                   </div>
                   {/* マンション選択・検索ボックス */}
-                  <div className="max-w-xl mx-auto w-full py-4 mb-4">
-                    <div className="relative group">
-                      <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
-                        <HomeIcon className="h-5 w-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
-                      </div>
-                      <Input
-                        type="text"
-                        placeholder="マンション名を入力して選択してください..."
-                        className="pl-12 h-14 text-lg rounded-2xl border-2 border-muted focus-visible:ring-primary focus-visible:border
+                  <MansionSelector onSelect={setSelectedMansion} />
+
 
                   {/* 業務シナリオボタン */}
                   <div className="grid sm:grid-cols-2 gap-4 lg:gap-6">
