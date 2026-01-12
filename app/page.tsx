@@ -233,21 +233,27 @@ export default function Dashboard() {
               {messages.length === 0 ? (
                 <div className="space-y-8">
                   {/* ウェルカムメッセージ */}
-                  <div className="text-center space-y-4 py-8">
+                  <div className="text-center space-y-2 py-0">
                     <div className="inline-flex h-20 w-20 lg:h-24 lg:w-24 items-center justify-center rounded-2xl bg-primary/10">
                       <MessageSquareIcon className="h-10 w-10 lg:h-12 lg:w-12 text-primary" />
                     </div>
                     <h2 className="text-2xl lg:text-4xl font-bold text-foreground text-balance">
-                      マンション管理の業務を
-                      <br />
-                      サポートします
+                      フロント業務をお助けします
                     </h2>
                     <p className="text-base lg:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-                      議事録作成、回覧文作成、入居者対応など
-                      <br />
-                      日々の業務をAIがお手伝いします
+                      マンション名とやりたいことを選んでみてください
                     </p>
                   </div>
+                  {/* マンション選択・検索ボックス */}
+                  <div className="max-w-xl mx-auto w-full py-4 mb-4">
+                    <div className="relative group">
+                      <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
+                        <HomeIcon className="h-5 w-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                      </div>
+                      <Input
+                        type="text"
+                        placeholder="マンション名を入力して選択してください..."
+                        className="pl-12 h-14 text-lg rounded-2xl border-2 border-muted focus-visible:ring-primary focus-visible:border
 
                   {/* 業務シナリオボタン */}
                   <div className="grid sm:grid-cols-2 gap-4 lg:gap-6">
