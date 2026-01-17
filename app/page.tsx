@@ -44,7 +44,10 @@ type Message = {
   sources?: Array<{ title: string; page?: string; content?: string; annotations?: any[]; fileId?: string }>
 }
 
+import { useRouter } from "next/navigation"
+
 export default function Dashboard() {
+  const router = useRouter()
   const [message, setMessage] = useState("")
   const [messages, setMessages] = useState<Message[]>([])
   const [isRecording, setIsRecording] = useState(false)
@@ -289,6 +292,14 @@ export default function Dashboard() {
           >
             <HistoryIcon className="h-5 w-5 mr-3" />
             過去の履歴
+          </Button>
+          <Button
+            variant="ghost"
+            className="w-full justify-start text-base h-12"
+            onClick={() => router.push('/documents')}
+          >
+            <FileIcon className="h-5 w-5 mr-3" />
+            文書管理
           </Button>
           <Button variant="ghost" className="w-full justify-start text-base h-12">
             <SettingsIcon className="h-5 w-5 mr-3" />
