@@ -30,7 +30,7 @@ import { MansionSelector } from "@/components/mansion-selector"
 import { HistoryView } from "@/components/history-view"
 import { Sidebar } from "@/components/sidebar"
 import { useSearchParams } from "next/navigation"
-import { useEffect } from "react"
+import { useEffect, Suspense } from "react"
 
 
 type Scenario = {
@@ -49,7 +49,7 @@ type Message = {
 
 import { useRouter } from "next/navigation"
 
-export default function Dashboard() {
+function DashboardContent() {
   const router = useRouter()
   const [message, setMessage] = useState("")
   const [messages, setMessages] = useState<Message[]>([])
@@ -465,5 +465,17 @@ export default function Dashboard() {
         <RightPane selectedSource={selectedSource} onClose={() => setSelectedSource(null)} />
       </ResizablePanel>
     </ResizablePanelGroup>
+  )
+}
+
+export default function Dashboard() {
+  return (
+    <Suspense fallback={
+      <div className="flex h-screen w-screen items-center justify-center bg-background">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    }>
+      <DashboardContent />
+    </Suspense>
   )
 }
