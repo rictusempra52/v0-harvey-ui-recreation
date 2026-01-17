@@ -1,9 +1,6 @@
 -- Storage バケットの作成
 INSERT INTO storage.buckets (id, name, public) VALUES ('pdfs', 'pdfs', false);
 
--- ポリシーを有効化
-ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
-
 -- 認証済みユーザーによる参照を許可
 CREATE POLICY "Allow authenticated read"
 ON storage.objects FOR SELECT
