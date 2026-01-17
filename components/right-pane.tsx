@@ -4,7 +4,7 @@ import { PdfViewer } from "@/components/pdf-viewer"
 import { ScrollArea } from "@/components/ui/scroll-area"
 
 interface RightPaneProps {
-    selectedSource: { title: string; content?: string } | null
+    selectedSource: { title: string; content?: string; annotations?: any[]; fileId?: string } | null
     onClose: () => void
 }
 
@@ -27,8 +27,11 @@ export function RightPane({ selectedSource, onClose }: RightPaneProps) {
                     </div>
                     <div className="flex-1 min-h-0 relative">
                         <PdfViewer
+                            key={`${selectedSource.title}-${selectedSource.content || ""}`}
                             url="/sample.pdf"
                             highlightText={selectedSource.content}
+                            annotations={selectedSource.annotations}
+                            fileId={selectedSource.fileId}
                         />
                     </div>
                 </div>
