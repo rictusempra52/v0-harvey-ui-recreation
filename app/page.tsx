@@ -41,7 +41,7 @@ type Scenario = {
 type Message = {
   role: "user" | "assistant"
   content: string
-  sources?: Array<{ title: string; page?: string; content?: string }>
+  sources?: Array<{ title: string; page?: string; content?: string; annotations?: any[]; fileId?: string }>
 }
 
 export default function Dashboard() {
@@ -131,8 +131,39 @@ export default function Dashboard() {
       },
     }
 
+    const sampleAnnotation = (id: string, text: string) => ({
+      "@context": [
+        "https://www.w3.org/ns/anno.jsonld",
+        "https://comments.acrobat.com/ns/anno.jsonld"
+      ],
+      type: "Annotation",
+      id: id,
+      bodyValue: text,
+      motivation: "commenting",
+      target: {
+        source: "example-pdf-id",
+        selector: {
+          type: "AdobeAnnoSelector",
+          subtype: "highlight",
+          node: { index: 0 },
+          boundingBox: [50, 100, 450, 150],
+          quadPoints: [50, 150, 450, 150, 50, 100, 450, 100],
+          strokeColor: "#ff0000"
+        }
+      },
+      creator: { type: "Person", name: "Assistant" },
+      created: new Date().toISOString(),
+      modified: new Date().toISOString()
+    })
+
     const messageData = scenarioMessages[scenario.id]
     if (messageData) {
+      if (messageData.assistant.sources) {
+        messageData.assistant.sources = messageData.assistant.sources.map((s, i) => ({
+          ...s,
+          annotations: [sampleAnnotation(`anno-${scenario.id}-${i}`, `${s.title}の重要箇所`)]
+        }))
+      }
       setMessages([{ role: "user", content: messageData.user }, messageData.assistant])
     }
   }
@@ -155,12 +186,58 @@ export default function Dashboard() {
               page: "関連条文",
               content:
                 "【管理規約 第○条】\n専有部分の修繕等\n区分所有者は、その専有部分について、修繕、模様替え又は建物に定着する物件の取り付け若しくは取り替え（以下「修繕等」という。）を行おうとするときは、あらかじめ、理事長にその旨を申請し、書面による承認を受けなければならない。\n\n2 前項の申請には、設計図、仕様書及び工程表を添付しなければならない。",
+              annotations: [
+                {
+                  "@context": ["https://www.w3.org/ns/anno.jsonld", "https://comments.acrobat.com/ns/anno.jsonld"],
+                  type: "Annotation",
+                  id: "anno-custom-1",
+                  bodyValue: "規約第○条の重要箇所",
+                  motivation: "commenting",
+                  target: {
+                    source: "example-pdf-id",
+                    selector: {
+                      type: "AdobeAnnoSelector",
+                      subtype: "highlight",
+                      node: { index: 0 },
+                      boundingBox: [50, 200, 500, 250],
+                      quadPoints: [50, 250, 500, 250, 50, 200, 500, 200],
+                      strokeColor: "#00ff00"
+                    }
+                  },
+                  creator: { type: "Person", name: "Assistant" },
+                  created: new Date().toISOString(),
+                  modified: new Date().toISOString()
+                }
+              ]
             },
             {
               title: "過去の議事録",
               page: "令和4年度",
               content:
                 "【令和4年度 第3回理事会議事録】\n議題2：専有部分のリフォーム申請について\n\n××号室より提出されたフローリング張替え工事申請について審議し、遮音等級L-45以上の製品を使用することを条件に承認することとした。",
+              annotations: [
+                {
+                  "@context": ["https://www.w3.org/ns/anno.jsonld", "https://comments.acrobat.com/ns/anno.jsonld"],
+                  type: "Annotation",
+                  id: "anno-custom-2",
+                  bodyValue: "議事録の重要箇所",
+                  motivation: "commenting",
+                  target: {
+                    source: "example-pdf-id",
+                    selector: {
+                      type: "AdobeAnnoSelector",
+                      subtype: "highlight",
+                      node: { index: 0 },
+                      boundingBox: [50, 300, 500, 350],
+                      quadPoints: [50, 350, 500, 350, 50, 300, 500, 300],
+                      strokeColor: "#0000ff"
+                    }
+                  },
+                  creator: { type: "Person", name: "Assistant" },
+                  created: new Date().toISOString(),
+                  modified: new Date().toISOString()
+                }
+              ]
             },
           ],
         }
