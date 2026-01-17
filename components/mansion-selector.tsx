@@ -2,23 +2,13 @@
 
 import { useState, useEffect, useRef } from "react"
 import { Input } from "@/components/ui/input"
-import { HomeIcon, CheckIcon } from "lucide-react"
+import { HomeIcon, CheckIcon, Loader2 } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { ScrollArea } from "@/components/ui/scroll-area"
-
-const DUMMY_MANSIONS = [
-    "グランドメゾン恵比寿",
-    "パークハビオ新宿ビル",
-    "プラウドタワー千代田",
-    "ザ・パークハウス晴海",
-    "ブリリアタワー有明",
-    "シティタワー武蔵小杉",
-    "ヴィンテージ芝浦",
-    "リビオレゾン板橋",
-]
+import { useApartments } from "@/hooks/use-apartments"
 
 interface MansionSelectorProps {
-    onSelect: (mansion: string) => void
+    onSelect: (mansion: string, apartmentId?: string) => void
 }
 
 export function MansionSelector({ onSelect }: MansionSelectorProps) {
@@ -26,9 +16,10 @@ export function MansionSelector({ onSelect }: MansionSelectorProps) {
     const [isOpen, setIsOpen] = useState(false)
     const [selectedIndex, setSelectedIndex] = useState(-1)
     const containerRef = useRef<HTMLDivElement>(null)
+    const { apartments, loading } = useApartments()
 
-    const filteredMansions = DUMMY_MANSIONS.filter((mansion) =>
-        mansion.toLowerCase().includes(query.toLowerCase())
+    const filteredMansions = apartments.filter((apt) =>
+        apt.name.toLowerCase().includes(query.toLowerCase())
     )
 
     useEffect(() => {
@@ -46,9 +37,9 @@ export function MansionSelector({ onSelect }: MansionSelectorProps) {
         setSelectedIndex(-1)
     }, [query])
 
-    const handleSelect = (mansion: string) => {
-        setQuery(mansion)
-        onSelect(mansion)
+    const handleSelect = (apartment: { id: string; name: string }) => {
+        setQuery(apartment.name)
+        onSelect(apartment.name, apartment.id)
         setIsOpen(false)
     }
 
@@ -79,11 +70,15 @@ export function MansionSelector({ onSelect }: MansionSelectorProps) {
         <div className="max-w-xl mx-auto w-full py-4 mb-4 relative" ref={containerRef}>
             <div className="relative group">
                 <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
-                    <HomeIcon className="h-5 w-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                    {loading ? (
+                        <Loader2 className="h-5 w-5 text-muted-foreground animate-spin" />
+                    ) : (
+                        <HomeIcon className="h-5 w-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                    )}
                 </div>
                 <Input
                     type="text"
-                    placeholder="マンション名を入力して選択してください..."
+                    placeholder={loading ? "読み込み中..." : "マンション名を入力して選択してください..."}
                     className="pl-12 h-14 text-lg rounded-2xl border-2 border-muted focus-visible:ring-primary focus-visible:border-primary transition-all shadow-sm"
                     value={query}
                     onChange={(e) => {
@@ -92,6 +87,7 @@ export function MansionSelector({ onSelect }: MansionSelectorProps) {
                     }}
                     onFocus={() => setIsOpen(true)}
                     onKeyDown={handleKeyDown}
+                    disabled={loading}
                 />
             </div>
 
@@ -99,17 +95,22 @@ export function MansionSelector({ onSelect }: MansionSelectorProps) {
                 <Card className="absolute top-full left-0 right-0 mt-2 z-50 shadow-xl border-2 rounded-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
                     <ScrollArea className="max-h-[300px]">
                         <div className="p-2">
-                            {filteredMansions.map((mansion, index) => (
+                            {filteredMansions.map((apartment, index) => (
                                 <button
-                                    key={mansion}
+                                    key={apartment.id}
                                     className={`w-full text-left px-4 py-3 rounded-xl transition-colors flex items-center justify-between group ${index === selectedIndex ? "bg-primary/20" : "hover:bg-primary/10"
                                         }`}
-                                    onClick={() => handleSelect(mansion)}
+                                    onClick={() => handleSelect(apartment)}
                                     onMouseEnter={() => setSelectedIndex(index)}
                                 >
-                                    <span className="text-lg font-medium">{mansion}</span>
-                                    {(query === mansion || index === selectedIndex) && (
-                                        <CheckIcon className={`h-5 w-5 ${query === mansion ? "text-primary" : "text-primary/40"}`} />
+                                    <div className="flex flex-col">
+                                        <span className="text-lg font-medium">{apartment.name}</span>
+                                        {apartment.address && (
+                                            <span className="text-sm text-muted-foreground">{apartment.address}</span>
+                                        )}
+                                    </div>
+                                    {(query === apartment.name || index === selectedIndex) && (
+                                        <CheckIcon className={`h-5 w-5 ${query === apartment.name ? "text-primary" : "text-primary/40"}`} />
                                     )}
                                 </button>
                             ))}
@@ -117,6 +118,13 @@ export function MansionSelector({ onSelect }: MansionSelectorProps) {
                     </ScrollArea>
                 </Card>
             )}
+
+            {isOpen && !loading && filteredMansions.length === 0 && query && (
+                <Card className="absolute top-full left-0 right-0 mt-2 z-50 shadow-xl border-2 rounded-2xl overflow-hidden p-4 text-center text-muted-foreground">
+                    該当するマンションが見つかりません
+                </Card>
+            )}
         </div>
     )
 }
+

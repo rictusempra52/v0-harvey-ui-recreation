@@ -472,7 +472,7 @@ export default function Dashboard() {
                 </div>
               </>
             ) : (
-              <HistoryView onSelect={(historyMessages) => {
+              <HistoryView onSelect={(historyMessages, _sessionId) => {
                 setMessages(historyMessages)
                 setCurrentView("home")
               }} />
