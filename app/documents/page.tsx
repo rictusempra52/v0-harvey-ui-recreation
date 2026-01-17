@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/resizable"
 import { MansionSelector } from "@/components/mansion-selector"
 import { PdfUploader } from "@/components/pdf-uploader"
+import { Sidebar } from "@/components/sidebar"
 import { createClient } from "@/lib/supabase"
 import { useAuth } from "@/lib/auth-context"
 
@@ -137,39 +138,7 @@ export default function DocumentsPage() {
         <ResizablePanelGroup direction="horizontal" className="h-dvh bg-background text-foreground">
             {/* サイドバー（デスクトップ） */}
             <ResizablePanel defaultSize={20} minSize={15} maxSize={30} className="hidden lg:flex flex-col border-r border-border bg-sidebar">
-                <div className="p-6 border-b border-border">
-                    <h1
-                        className="text-2xl font-bold text-sidebar-foreground flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
-                        onClick={() => router.push('/')}
-                    >
-                        <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
-                            <HomeIcon className="h-5 w-5 text-primary-foreground" />
-                        </div>
-                        シメスくん
-                    </h1>
-                    <p className="text-sm text-muted-foreground mt-1">マンション管理AIアシスタント</p>
-                </div>
-                <nav className="flex-1 p-4 space-y-2">
-                    <Button
-                        variant="ghost"
-                        className="w-full justify-start text-base h-12"
-                        onClick={() => router.push('/')}
-                    >
-                        <HomeIcon className="h-5 w-5 mr-3" />
-                        ホーム
-                    </Button>
-                    <Button
-                        variant="secondary"
-                        className="w-full justify-start text-base h-12"
-                    >
-                        <FileIcon className="h-5 w-5 mr-3" />
-                        文書管理
-                    </Button>
-                    <Button variant="ghost" className="w-full justify-start text-base h-12">
-                        <SettingsIcon className="h-5 w-5 mr-3" />
-                        設定
-                    </Button>
-                </nav>
+                <Sidebar />
             </ResizablePanel>
 
             <ResizableHandle withHandle className="hidden lg:flex" />
