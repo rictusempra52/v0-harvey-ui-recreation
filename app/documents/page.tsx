@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import {
     HomeIcon,
@@ -25,6 +25,7 @@ import { PdfUploader } from "@/components/pdf-uploader"
 import { Sidebar } from "@/components/sidebar"
 import { createClient } from "@/lib/supabase"
 import { useAuth } from "@/lib/auth-context"
+import { cn } from "@/lib/utils"
 
 type Document = {
     id: string
@@ -42,6 +43,7 @@ export default function DocumentsPage() {
     const [documents, setDocuments] = useState<Document[]>([])
     const [loading, setLoading] = useState(false)
     const [deleting, setDeleting] = useState<string | null>(null)
+    const [uploadingFile, setUploadingFile] = useState<{ name: string, progress: number } | null>(null)
 
     const supabase = createClient()
 
@@ -69,6 +71,42 @@ export default function DocumentsPage() {
         fetchDocuments()
     }, [selectedMansion, supabase])
 
+    // Realtime購読を追加
+    useEffect(() => {
+        if (!selectedMansion?.id) return
+
+        const channel = supabase
+            .channel(`documents-realtime-${selectedMansion.id}`)
+            .on(
+                'postgres_changes',
+                {
+                    event: '*',
+                    schema: 'public',
+                    table: 'documents',
+                    filter: `apartment_id=eq.${selectedMansion.id}`
+                },
+                (payload) => {
+                    if (payload.eventType === 'INSERT') {
+                        setDocuments(prev => {
+                            if (prev.find(d => d.id === payload.new.id)) return prev
+                            return [payload.new as Document, ...prev]
+                        })
+                    } else if (payload.eventType === 'UPDATE') {
+                        setDocuments(prev => prev.map(d =>
+                            d.id === payload.new.id ? { ...d, ...payload.new } as Document : d
+                        ))
+                    } else if (payload.eventType === 'DELETE') {
+                        setDocuments(prev => prev.filter(d => d.id !== payload.old.id))
+                    }
+                }
+            )
+            .subscribe()
+
+        return () => {
+            supabase.removeChannel(channel)
+        }
+    }, [selectedMansion, supabase])
+
     const handleMansionSelect = (name: string, id?: string) => {
         if (id) {
             setSelectedMansion({ name, id })
@@ -94,7 +132,16 @@ export default function DocumentsPage() {
         if (!error && data) {
             setDocuments(prev => [data, ...prev])
         }
+        setUploadingFile(null)
     }
+
+    const handleUploadStart = useCallback((name: string) => {
+        setUploadingFile({ name, progress: 0 })
+    }, [])
+
+    const handleProgress = useCallback((progress: number) => {
+        setUploadingFile(prev => prev ? { ...prev, progress } : null)
+    }, [])
 
     const handleDelete = async (id: string, path: string) => {
         setDeleting(id)
@@ -121,16 +168,39 @@ export default function DocumentsPage() {
         setDeleting(null)
     }
 
-    const getStatusBadge = (status: string) => {
+    const getFileStatusBadge = (isUploaded: boolean, progress: number = 0) => {
+        const badgeClass = "text-sm px-3 py-1 font-medium"
+        if (!isUploaded) {
+            return (
+                <Badge variant="secondary" className={cn("bg-blue-100 text-blue-700 border-blue-200 animate-pulse", badgeClass)}>
+                    アップロード中 ({progress}%)
+                </Badge>
+            )
+        }
+        return (
+            <Badge variant="outline" className={cn("text-emerald-600 border-emerald-200 bg-emerald-50", badgeClass)}>
+                ✅ アップロード完了
+            </Badge>
+        )
+    }
+
+    const getOcrStatusBadge = (status: string, isUploaded: boolean) => {
+        const badgeClass = "text-sm px-3 py-1 font-medium"
+        if (!isUploaded) {
+            return <Badge variant="outline" className={cn("text-muted-foreground bg-muted/50", badgeClass)}>待機中</Badge>
+        }
+
         switch (status) {
             case 'completed':
-                return <Badge className="bg-green-500 hover:bg-green-600">OCR完了</Badge>
+                return <Badge className={cn("bg-green-600 hover:bg-green-700 text-white", badgeClass)}>OCR完了</Badge>
             case 'processing':
-                return <Badge className="bg-blue-500 hover:bg-blue-600">処理中</Badge>
+                return <Badge className={cn("bg-amber-500 hover:bg-amber-600 text-white", badgeClass)}>OCR処理中...</Badge>
             case 'failed':
-                return <Badge variant="destructive">失敗</Badge>
+                return <Badge variant="destructive" className={badgeClass}>OCR失敗</Badge>
+            case 'pending':
+                return <Badge variant="secondary" className={cn("bg-slate-200 text-slate-700", badgeClass)}>OCR待ち</Badge>
             default:
-                return <Badge variant="secondary">待機中</Badge>
+                return <Badge variant="secondary" className={badgeClass}>不明</Badge>
         }
     }
 
@@ -171,7 +241,11 @@ export default function DocumentsPage() {
                                     <>
                                         <Card className="p-6">
                                             <h3 className="text-lg font-semibold mb-4">新規アップロード</h3>
-                                            <PdfUploader onUploadComplete={handleUploadComplete} />
+                                            <PdfUploader
+                                                onUploadComplete={handleUploadComplete}
+                                                onUploadStart={handleUploadStart}
+                                                onProgress={handleProgress}
+                                            />
                                         </Card>
 
                                         <div className="space-y-4">
@@ -187,18 +261,41 @@ export default function DocumentsPage() {
                                                 </div>
                                             ) : (
                                                 <div className="grid gap-4">
-                                                    {documents.map((doc) => (
-                                                        <Card key={doc.id} className="p-4 flex items-center justify-between hover:bg-accent/5 transition-colors">
+                                                    {/* アップロード中のプレースホルダー */}
+                                                    {uploadingFile && (
+                                                        <Card className="p-4 flex items-center justify-between border-blue-200 bg-blue-50/30">
                                                             <div className="flex items-center gap-4 min-w-0">
-                                                                <div className="h-10 w-10 rounded-lg bg-red-100 flex items-center justify-center shrink-0">
-                                                                    <FileTextIcon className="h-5 w-5 text-red-600" />
+                                                                <div className="h-10 w-10 rounded-lg bg-blue-100 flex items-center justify-center shrink-0">
+                                                                    <FileTextIcon className="h-5 w-5 text-blue-600 animate-bounce" />
                                                                 </div>
                                                                 <div className="min-w-0">
-                                                                    <p className="font-medium truncate">{doc.file_name}</p>
-                                                                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                                                        <span>{new Date(doc.created_at).toLocaleDateString('ja-JP')}</span>
-                                                                        <span>•</span>
-                                                                        {getStatusBadge(doc.ocr_status)}
+                                                                    <p className="font-semibold truncate text-blue-900">{uploadingFile.name}</p>
+                                                                    <div className="flex items-center gap-3 mt-1">
+                                                                        {getFileStatusBadge(false, uploadingFile.progress)}
+                                                                        {getOcrStatusBadge('pending', false)}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                            <Loader2 className="h-5 w-5 animate-spin text-blue-500" />
+                                                        </Card>
+                                                    )}
+
+                                                    {documents.map((doc) => (
+                                                        <Card key={doc.id} className="p-4 flex items-center justify-between hover:bg-accent/5 transition-colors border-border/60">
+                                                            <div className="flex items-center gap-4 min-w-0">
+                                                                <div className="h-12 w-12 rounded-lg bg-red-50 flex items-center justify-center shrink-0 border border-red-100">
+                                                                    <FileTextIcon className="h-6 w-6 text-red-500" />
+                                                                </div>
+                                                                <div className="min-w-0">
+                                                                    <p className="font-bold text-lg truncate mb-1">{doc.file_name}</p>
+                                                                    <div className="flex items-center gap-3 flex-wrap">
+                                                                        <span className="text-sm text-muted-foreground font-medium">
+                                                                            {new Date(doc.created_at).toLocaleDateString('ja-JP')}
+                                                                        </span>
+                                                                        <div className="flex items-center gap-2">
+                                                                            {getFileStatusBadge(true)}
+                                                                            {getOcrStatusBadge(doc.ocr_status, true)}
+                                                                        </div>
                                                                     </div>
                                                                 </div>
                                                             </div>

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import { UploadCloudIcon, FileTextIcon, Loader2, CheckCircle2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useUpload } from "@/hooks/use-upload"
@@ -8,15 +8,24 @@ import { cn } from "@/lib/utils"
 
 type PdfUploaderProps = {
     onUploadComplete?: (path: string, fileName: string) => void
+    onUploadStart?: (fileName: string) => void
+    onProgress?: (progress: number) => void
     className?: string
 }
 
-export function PdfUploader({ onUploadComplete, className }: PdfUploaderProps) {
+export function PdfUploader({ onUploadComplete, onUploadStart, onProgress, className }: PdfUploaderProps) {
     const [isDragOver, setIsDragOver] = useState(false)
     const [file, setFile] = useState<File | null>(null)
     const fileInputRef = useRef<HTMLInputElement>(null)
 
-    const { uploadFile, uploading, error } = useUpload()
+    const { uploadFile, uploading, progress, error } = useUpload()
+
+    // 進捗の通知
+    useEffect(() => {
+        if (uploading && file) {
+            onProgress?.(progress)
+        }
+    }, [progress, uploading, file, onProgress])
 
     const handleDragOver = (e: React.DragEvent) => {
         e.preventDefault()
@@ -48,6 +57,7 @@ export function PdfUploader({ onUploadComplete, className }: PdfUploaderProps) {
     const handleUpload = async () => {
         if (!file) return
 
+        onUploadStart?.(file.name)
         const result = await uploadFile({ file })
 
         if (result) {
@@ -81,7 +91,7 @@ export function PdfUploader({ onUploadComplete, className }: PdfUploaderProps) {
                 {uploading ? (
                     <div className="flex flex-col items-center gap-2">
                         <Loader2 className="h-10 w-10 animate-spin text-primary" />
-                        <p className="text-sm text-muted-foreground">アップロード中...</p>
+                        <p className="text-sm text-muted-foreground">アップロード中... ({progress}%)</p>
                     </div>
                 ) : file ? (
                     <div className="flex flex-col items-center gap-4">

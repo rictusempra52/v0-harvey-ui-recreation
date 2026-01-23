@@ -15,6 +15,7 @@ export type UploadResult = {
 
 export function useUpload() {
   const [uploading, setUploading] = useState(false)
+  const [progress, setProgress] = useState(0)
   const [error, setError] = useState<Error | null>(null)
   const { user } = useAuth()
   const supabase = createClient()
@@ -27,6 +28,7 @@ export function useUpload() {
 
     try {
       setUploading(true)
+      setProgress(0)
       setError(null)
 
       // ファイル名をユニークにする
@@ -34,16 +36,18 @@ export function useUpload() {
       const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`
       const filePath = `${user.id}/${fileName}`
 
-      const { error: uploadError, data } = await supabase.storage
+      const { error: uploadError, data } = await (supabase.storage
         .from(bucketName)
-        .upload(filePath, file)
+        .upload(filePath, file, {
+          onUploadProgress: (progress: any) => {
+            const percent = (progress.loaded / progress.total) * 100
+            setProgress(Math.round(percent))
+          }
+        } as any))
 
       if (uploadError) {
         throw uploadError
       }
-
-      // 公開URLを取得（非公開バケットの場合は署名付きURLが必要だが、今回はとりあえずパスを返す）
-      // RLSで閲覧許可されているので、Authenticatedユーザーならダウンロード可能
       
       return {
         path: filePath,
@@ -61,6 +65,7 @@ export function useUpload() {
   return {
     uploadFile,
     uploading,
+    progress,
     error
   }
 }
