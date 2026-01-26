@@ -103,7 +103,7 @@ export function HistoryView({ onSelect }: HistoryViewProps) {
     }
 
     return (
-        <div className="flex flex-col h-full bg-background overflow-hidden">
+        <div className="flex flex-col h-full bg-background overflow-hidden min-h-0 relative">
             <div className="shrink-0 p-4 lg:p-8 border-b border-border space-y-4">
                 <h2 className="text-2xl lg:text-3xl font-bold">過去の履歴</h2>
                 <div className="relative">
@@ -117,7 +117,7 @@ export function HistoryView({ onSelect }: HistoryViewProps) {
                 </div>
             </div>
 
-            <ScrollArea className="flex-1 h-full">
+            <ScrollArea className="flex-1 min-h-0">
                 <div className="p-4 lg:p-8 space-y-4 max-w-5xl mx-auto">
                     {loading ? (
                         <div className="flex items-center justify-center py-12">

@@ -28,6 +28,9 @@ import {
 import { RightPane } from "@/components/right-pane"
 import { MansionSelector } from "@/components/mansion-selector"
 import { HistoryView } from "@/components/history-view"
+import { Sidebar } from "@/components/sidebar"
+import { useSearchParams } from "next/navigation"
+import { useEffect, Suspense } from "react"
 
 
 type Scenario = {
@@ -44,13 +47,26 @@ type Message = {
   sources?: Array<{ title: string; page?: string; content?: string; annotations?: any[]; fileId?: string }>
 }
 
-export default function Dashboard() {
+import { useRouter } from "next/navigation"
+
+function DashboardContent() {
+  const router = useRouter()
   const [message, setMessage] = useState("")
   const [messages, setMessages] = useState<Message[]>([])
   const [isRecording, setIsRecording] = useState(false)
   const [selectedSource, setSelectedSource] = useState<{ title: string; content?: string } | null>(null)
   const [selectedMansion, setSelectedMansion] = useState("")
   const [currentView, setCurrentView] = useState<"home" | "history">("home")
+  const searchParams = useSearchParams()
+
+  useEffect(() => {
+    const view = searchParams.get("view")
+    if (view === "history") {
+      setCurrentView("history")
+    } else {
+      setCurrentView("home")
+    }
+  }, [searchParams])
 
 
   const scenarios: Scenario[] = [
@@ -261,46 +277,7 @@ export default function Dashboard() {
     <ResizablePanelGroup direction="horizontal" className="h-dvh bg-background text-foreground">
       {/* サイドバー（デスクトップ） */}
       <ResizablePanel defaultSize={20} minSize={15} maxSize={30} className="hidden lg:flex flex-col border-r border-border bg-sidebar">
-        <div className="p-6 border-b border-border">
-          <h1
-            className="text-2xl font-bold text-sidebar-foreground flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
-            onClick={() => setMessages([])}
-          >
-            <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
-              <HomeIcon className="h-5 w-5 text-primary-foreground" />
-            </div>
-            シメスくん
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">マンション管理AIアシスタント</p>
-        </div>
-        <nav className="flex-1 p-4 space-y-2">
-          <Button
-            variant={currentView === "home" ? "secondary" : "ghost"}
-            className="w-full justify-start text-base h-12"
-            onClick={() => setCurrentView("home")}
-          >
-            <HomeIcon className="h-5 w-5 mr-3" />
-            ホーム
-          </Button>
-          <Button
-            variant={currentView === "history" ? "secondary" : "ghost"}
-            className="w-full justify-start text-base h-12"
-            onClick={() => setCurrentView("history")}
-          >
-            <HistoryIcon className="h-5 w-5 mr-3" />
-            過去の履歴
-          </Button>
-          <Button variant="ghost" className="w-full justify-start text-base h-12">
-            <SettingsIcon className="h-5 w-5 mr-3" />
-            設定
-          </Button>
-        </nav>
-        <div className="p-4 border-t border-border">
-          <Card className="p-4 bg-primary/5 border-primary/20">
-            <p className="text-sm text-foreground font-medium mb-1">使い方ガイド</p>
-            <p className="text-xs text-muted-foreground">大きなボタンをタップするか、マイクボタンで音声入力できます</p>
-          </Card>
-        </div>
+        <Sidebar currentView={currentView} onViewChange={setCurrentView} />
       </ResizablePanel>
 
       <ResizableHandle withHandle className="hidden lg:flex" />
@@ -488,5 +465,17 @@ export default function Dashboard() {
         <RightPane selectedSource={selectedSource} onClose={() => setSelectedSource(null)} />
       </ResizablePanel>
     </ResizablePanelGroup>
+  )
+}
+
+export default function Dashboard() {
+  return (
+    <Suspense fallback={
+      <div className="flex h-screen w-screen items-center justify-center bg-background">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    }>
+      <DashboardContent />
+    </Suspense>
   )
 }
