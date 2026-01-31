@@ -30,7 +30,9 @@ import { MansionSelector } from "@/components/mansion-selector"
 import { HistoryView } from "@/components/history-view"
 import { Sidebar } from "@/components/sidebar"
 import { useSearchParams } from "next/navigation"
-import { useEffect, Suspense } from "react"
+import { useEffect, Suspense, useCallback } from "react"
+import { useChat } from "@/hooks/use-chat"
+import { useAuth } from "@/lib/auth-context"
 
 
 type Scenario = {
@@ -51,8 +53,16 @@ import { useRouter } from "next/navigation"
 
 function DashboardContent() {
   const router = useRouter()
+  const { user } = useAuth()
+  const {
+    messages,
+    sendMessage,
+    currentSession,
+    createSession,
+    selectSession,
+    loading: aiLoading
+  } = useChat()
   const [message, setMessage] = useState("")
-  const [messages, setMessages] = useState<Message[]>([])
   const [isRecording, setIsRecording] = useState(false)
   const [selectedSource, setSelectedSource] = useState<{ title: string; content?: string } | null>(null)
   const [selectedMansion, setSelectedMansion] = useState("")
@@ -100,7 +110,7 @@ function DashboardContent() {
     },
   ]
 
-  const handleScenarioClick = (scenario: Scenario) => {
+  const handleScenarioClick = async (scenario: Scenario) => {
     const scenarioMessages: Record<string, { user: string; assistant: Message }> = {
       minutes: {
         user: "理事会の議事録を作成してください",
@@ -174,91 +184,33 @@ function DashboardContent() {
 
     const messageData = scenarioMessages[scenario.id]
     if (messageData) {
-      if (messageData.assistant.sources) {
-        messageData.assistant.sources = messageData.assistant.sources.map((s, i) => ({
-          ...s,
-          annotations: [sampleAnnotation(`anno-${scenario.id}-${i}`, `${s.title}の重要箇所`)]
-        }))
+      // セッションがない場合は作成
+      let session = currentSession
+      if (!session) {
+        session = await createSession(selectedMansion || undefined, messageData.user)
       }
-      setMessages([{ role: "user", content: messageData.user }, messageData.assistant])
+
+      if (session) {
+        await sendMessage(messageData.user, "user")
+        // シナリオの回答はデモなので、ここではAIに任せるか、あるいは特定の内容を送信する
+        // 今回はシンプルにユーザーの入力を送信し、AIの応答を待つ形にする
+      }
     }
   }
 
-  const handleSendMessage = () => {
+  const handleSendMessage = async () => {
     if (message.trim()) {
-      const newUserMessage: Message = { role: "user", content: message }
-      setMessages([...messages, newUserMessage])
+      const content = message
       setMessage("")
 
-      // フロントエンドのみのデモレスポンス
-      setTimeout(() => {
-        const assistantMessage: Message = {
-          role: "assistant",
-          content:
-            "ご質問ありがとうございます。該当する情報を確認いたしました。管理規約および過去の事例に基づき、以下の通りご案内いたします。詳細は引用元の文書をご確認ください。",
-          sources: [
-            {
-              title: "管理規約",
-              page: "関連条文",
-              content:
-                "【管理規約 第○条】\n専有部分の修繕等\n区分所有者は、その専有部分について、修繕、模様替え又は建物に定着する物件の取り付け若しくは取り替え（以下「修繕等」という。）を行おうとするときは、あらかじめ、理事長にその旨を申請し、書面による承認を受けなければならない。\n\n2 前項の申請には、設計図、仕様書及び工程表を添付しなければならない。",
-              annotations: [
-                {
-                  "@context": ["https://www.w3.org/ns/anno.jsonld", "https://comments.acrobat.com/ns/anno.jsonld"],
-                  type: "Annotation",
-                  id: "anno-custom-1",
-                  bodyValue: "規約第○条の重要箇所",
-                  motivation: "commenting",
-                  target: {
-                    source: "example-pdf-id",
-                    selector: {
-                      type: "AdobeAnnoSelector",
-                      subtype: "highlight",
-                      node: { index: 0 },
-                      boundingBox: [50, 200, 500, 250],
-                      quadPoints: [50, 250, 500, 250, 50, 200, 500, 200],
-                      strokeColor: "#00ff00"
-                    }
-                  },
-                  creator: { type: "Person", name: "Assistant" },
-                  created: new Date().toISOString(),
-                  modified: new Date().toISOString()
-                }
-              ]
-            },
-            {
-              title: "過去の議事録",
-              page: "令和4年度",
-              content:
-                "【令和4年度 第3回理事会議事録】\n議題2：専有部分のリフォーム申請について\n\n××号室より提出されたフローリング張替え工事申請について審議し、遮音等級L-45以上の製品を使用することを条件に承認することとした。",
-              annotations: [
-                {
-                  "@context": ["https://www.w3.org/ns/anno.jsonld", "https://comments.acrobat.com/ns/anno.jsonld"],
-                  type: "Annotation",
-                  id: "anno-custom-2",
-                  bodyValue: "議事録の重要箇所",
-                  motivation: "commenting",
-                  target: {
-                    source: "example-pdf-id",
-                    selector: {
-                      type: "AdobeAnnoSelector",
-                      subtype: "highlight",
-                      node: { index: 0 },
-                      boundingBox: [50, 300, 500, 350],
-                      quadPoints: [50, 350, 500, 350, 50, 300, 500, 300],
-                      strokeColor: "#0000ff"
-                    }
-                  },
-                  creator: { type: "Person", name: "Assistant" },
-                  created: new Date().toISOString(),
-                  modified: new Date().toISOString()
-                }
-              ]
-            },
-          ],
-        }
-        setMessages((prev) => [...prev, assistantMessage])
-      }, 1000)
+      let session = currentSession
+      if (!session) {
+        session = await createSession(selectedMansion || undefined, content)
+      }
+
+      if (session) {
+        await sendMessage(content, "user")
+      }
     }
   }
 
@@ -449,8 +401,8 @@ function DashboardContent() {
                 </div>
               </>
             ) : (
-              <HistoryView onSelect={(historyMessages, _sessionId) => {
-                setMessages(historyMessages)
+              <HistoryView onSelect={(historyMessages, sessionId) => {
+                selectSession(sessionId)
                 setCurrentView("home")
               }} />
             )}
