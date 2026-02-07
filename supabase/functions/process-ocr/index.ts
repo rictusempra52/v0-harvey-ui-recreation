@@ -78,6 +78,6 @@ Deno.serve(async (req: Request) => {
   } catch (error: any) {
     console.error('OCR Error:', error);
     // 失敗した場合はステータスを 'failed' に
-    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : String(error) }), { status: 500 });
+    return new Response(JSON.stringify({ error: 'Internal server error' }), { status: 500 });
   }
 });
