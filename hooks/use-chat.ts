@@ -81,15 +81,17 @@ export function useChat() {
   const sendMessage = useCallback(async (
     content: string,
     role: "user" | "assistant",
-    sources?: MessageSource[]
+    sources?: MessageSource[],
+    sessionId?: string
   ) => {
-    if (!currentSession) return null
+    const targetSessionId = sessionId || currentSession?.id
+    if (!targetSessionId) return null
 
     // 1. ユーザーメッセージをDBに保存
     const { data: userMsg, error: userError } = await supabase
       .from("chat_messages")
       .insert({
-        session_id: currentSession.id,
+        session_id: targetSessionId,
         role,
         content,
         sources: sources || [],
@@ -98,14 +100,17 @@ export function useChat() {
       .single()
 
     if (userError || !userMsg) return null
-    setMessages(prev => [...prev, userMsg])
+    
+    // 最新のメッセージリストを生成（ステートの更新待機を回避）
+    const updatedMessages = [...messages, userMsg]
+    setMessages(updatedMessages)
 
     // セッションの updated_at とタイトルを更新
     if (messages.length === 0) {
       await supabase
         .from("chat_sessions")
         .update({ title: content.slice(0, 50) })
-        .eq("id", currentSession.id)
+        .eq("id", targetSessionId)
       fetchSessions()
     }
 
@@ -116,7 +121,7 @@ export function useChat() {
         const response = await fetch("/api/chat", {
           method: "POST",
           body: JSON.stringify({
-            messages: [...messages, { role: "user", content }].map(m => ({
+            messages: updatedMessages.map(m => ({
               role: m.role,
               content: m.content,
             })),
@@ -138,7 +143,7 @@ export function useChat() {
         let aiContent = ""
         const aiMsgPlaceholder: ChatMessage = {
           id: "temp-ai-id",
-          session_id: currentSession.id,
+          session_id: targetSessionId,
           role: "assistant",
           content: "",
           created_at: new Date().toISOString(),
@@ -184,7 +189,7 @@ export function useChat() {
         const { data: savedAiMsg } = await supabase
           .from("chat_messages")
           .insert({
-            session_id: currentSession.id,
+            session_id: targetSessionId,
             role: "assistant",
             content: aiContent,
             sources: [],
