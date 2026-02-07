@@ -123,7 +123,14 @@ export function useChat() {
           }),
         })
 
-        if (!response.ok) throw new Error("AI response failed")
+        console.log("Chat API Response Status:", response.status);
+        console.log("Chat API Status Header:", response.headers.get("X-Chat-API-Status"));
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error("Chat API Error Text:", errorText);
+          throw new Error(`AI response failed: ${response.status}`);
+        }
 
         const reader = response.body?.getReader()
         if (!reader) throw new Error("No reader available")
@@ -148,16 +155,11 @@ export function useChat() {
           // Vercel AI SDK のデータ形式（0:"..."）からテキストを抽出
           const lines = chunk.split("\n")
           for (const line of lines) {
-            if (line.startsWith('0:')) {
-              try {
-                const text = JSON.parse(line.slice(2))
-                aiContent += text
-                setMessages(prev => 
-                  prev.map(m => m.id === "temp-ai-id" ? { ...m, content: aiContent } : m)
-                )
-              } catch (e) {
-                console.error("Error parsing chunk", e)
-              }
+            if (line) {
+              aiContent += line
+              setMessages(prev => 
+                prev.map(m => m.id === "temp-ai-id" ? { ...m, content: aiContent } : m)
+              )
             }
           }
         }

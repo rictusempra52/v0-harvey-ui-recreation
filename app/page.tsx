@@ -29,6 +29,7 @@ import { RightPane } from "@/components/right-pane"
 import { MansionSelector } from "@/components/mansion-selector"
 import { HistoryView } from "@/components/history-view"
 import { Sidebar } from "@/components/sidebar"
+import { Markdown } from "@/components/markdown"
 import { useSearchParams } from "next/navigation"
 import { useEffect, Suspense, useCallback } from "react"
 import { useChat } from "@/hooks/use-chat"
@@ -322,7 +323,11 @@ function DashboardContent() {
                                   : "bg-card text-card-foreground"
                                   }`}
                               >
-                                <p className="text-base lg:text-lg leading-relaxed whitespace-pre-line">{msg.content}</p>
+                                {msg.role === "assistant" ? (
+                                  <Markdown content={msg.content} />
+                                ) : (
+                                  <p className="text-base lg:text-lg leading-relaxed whitespace-pre-line">{msg.content}</p>
+                                )}
                               </Card>
                               {/* 根拠の見える化：引用元の表示 */}
                               {msg.sources && msg.sources.length > 0 && (
