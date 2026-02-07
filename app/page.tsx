@@ -67,6 +67,7 @@ function DashboardContent() {
   const [isRecording, setIsRecording] = useState(false)
   const [selectedSource, setSelectedSource] = useState<{ title: string; content?: string } | null>(null)
   const [selectedMansion, setSelectedMansion] = useState("")
+  const [selectedMansionId, setSelectedMansionId] = useState<string | undefined>(undefined)
   const [currentView, setCurrentView] = useState<"home" | "history">("home")
   const searchParams = useSearchParams()
 
@@ -188,7 +189,7 @@ function DashboardContent() {
       // セッションがない場合は作成
       let session = currentSession
       if (!session) {
-        session = await createSession(selectedMansion || undefined, messageData.user)
+        session = await createSession(selectedMansionId, messageData.user)
       }
 
       if (session) {
@@ -206,7 +207,7 @@ function DashboardContent() {
 
       let session = currentSession
       if (!session) {
-        session = await createSession(selectedMansion || undefined, content)
+        session = await createSession(selectedMansionId, content)
       }
 
       if (session) {
@@ -283,7 +284,10 @@ function DashboardContent() {
                           </p>
                         </div>
                         {/* マンション選択・検索ボックス */}
-                        <MansionSelector onSelect={setSelectedMansion} />
+                        <MansionSelector onSelect={(name, id) => {
+                          setSelectedMansion(name)
+                          setSelectedMansionId(id)
+                        }} />
 
 
                         {/* 業務シナリオボタン */}
