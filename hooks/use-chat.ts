@@ -123,6 +123,7 @@ export function useChat() {
               role: m.role,
               content: m.content,
             })),
+            sessionId: targetSessionId,
           }),
         })
 
@@ -150,31 +151,42 @@ export function useChat() {
         setMessages(prev => [...prev, aiMsgPlaceholder])
 
         const decoder = new TextDecoder()
+        let buffer = ""
         while (true) {
           const { done, value } = await reader.read()
           if (done) break
 
+          // チャンクをデコードし、バッファに追加
           const chunk = decoder.decode(value, { stream: true })
+          buffer += chunk
           
-          // Vercel AI SDK のデータ形式（0:"..."）からテキストを抽出
-          const lines = chunk.split("\n")
-          for (let i = 0; i < lines.length; i++) {
-            const line = lines[i]
-            if (line.startsWith('0:')) {
-              try {
-                // 0:"text" の形式から文字列のみを取り出す
-                const text = JSON.parse(line.substring(2))
-                aiContent += text
-              } catch (e) {
-                // パースに失敗した場合はそのまま結合
-                aiContent += line
+          // 改行で分割し、完全な行だけを処理
+          const lines = buffer.split("\n")
+          // 最後の不完全な行をバッファに戻す
+          buffer = lines.pop() || ""
+          
+          for (const line of lines) {
+            const trimmedLine = line.trim()
+            if (!trimmedLine) continue
+
+            // Vercel AI SDK プロトコル (0:"text", 1:"...", etc)
+            const colonIndex = trimmedLine.indexOf(":")
+            if (colonIndex !== -1) {
+              const type = trimmedLine.substring(0, colonIndex)
+              const content = trimmedLine.substring(colonIndex + 1)
+              
+              if (type === "0") {
+                try {
+                  const text = JSON.parse(content)
+                  aiContent += text
+                } catch (e) {
+                  // JSONパース失敗時はフォールバック
+                  aiContent += content.replace(/^"|"$/g, '').replace(/\\n/g, '\n')
+                }
               }
-            } else if (!line.includes(":")) {
-              // プロトコル形式でない場合はそのまま結合し、改行を復元
-              aiContent += line
-              if (i < lines.length - 1) {
-                aiContent += "\n"
-              }
+            } else {
+              // プロトコル形式でない場合はそのまま追加（念のため）
+              aiContent += trimmedLine
             }
           }
 
@@ -183,17 +195,86 @@ export function useChat() {
           )
         }
 
+        // ストリーム終了後の残りのバッファを処理
+        if (buffer) {
+          const lines = buffer.split("\n")
+          for (const line of lines) {
+            const trimmedLine = line.trim()
+            if (!trimmedLine) continue
+            const colonIndex = trimmedLine.indexOf(":")
+            if (colonIndex !== -1) {
+              const type = trimmedLine.substring(0, colonIndex)
+              const content = trimmedLine.substring(colonIndex + 1)
+              if (type === "0") {
+                try {
+                  const text = JSON.parse(content)
+                  aiContent += text
+                } catch (e) {
+                  aiContent += content.replace(/^"|"$/g, '').replace(/\\n/g, '\n')
+                }
+              }
+            } else {
+              aiContent += trimmedLine
+            }
+          }
+        }
+
+        // 状態を最終確定
+        setMessages(prev => 
+          prev.map(m => m.id === "temp-ai-id" ? { ...m, content: aiContent } : m)
+        )
+
+        // AIの応答からソース情報を抽出するパース処理（さらに強化）
+        const extractedSources: MessageSource[] = []
+        
+        // 1. まず「参考資料:」セクションを探す
+        let sourceText = ""
+        const sourceMatch = aiContent.match(/参考資料[:：]\s*([\s\S]*)$/)
+        if (sourceMatch && sourceMatch[1]) {
+          sourceText = sourceMatch[1]
+        } else {
+          // 2. 見出しがない場合、メッセージ全体の末尾にあるリスト形式を探す
+          sourceText = aiContent
+        }
+
+        const lines = sourceText.split("\n")
+        lines.forEach(line => {
+          // 例: * [文書名] (ID: uuid)
+          const docMatch = line.match(/[*・-]\s*(?:\[(.*?)\]|(.*?))(?:\s*\((.*?)\))?$/)
+          if (docMatch) {
+            const extra = docMatch[3] || ""
+            const idMatch = extra.match(/ID:\s*([a-f\d-]+)/i)
+            
+            if (idMatch) {
+              const title = (docMatch[1] || docMatch[2] || "").trim()
+              // タイトルからID部分を削除（もし混入していれば）
+              const cleanTitle = title.replace(/\s*\(ID:.*?\)\s*/, "").trim()
+              
+              if (cleanTitle && !cleanTitle.includes("参考資料")) {
+                extractedSources.push({
+                  title: cleanTitle,
+                  fileId: idMatch[1],
+                })
+              }
+            }
+          }
+        })
+
         // AIの応答をDBに保存
-        const { data: savedAiMsg } = await supabase
+        const { data: savedAiMsg, error: saveError } = await supabase
           .from("chat_messages")
           .insert({
             session_id: targetSessionId,
             role: "assistant",
             content: aiContent,
-            sources: [],
+            sources: extractedSources,
           })
           .select()
           .single()
+
+        if (saveError) {
+          console.error("Failed to save AI message:", saveError)
+        }
 
         if (savedAiMsg) {
           setMessages(prev => 
