@@ -105,13 +105,11 @@ export function useChat() {
     const updatedMessages = [...messages, userMsg]
     setMessages(updatedMessages)
 
-    // セッションの updated_at とタイトルを更新
     if (messages.length === 0) {
       await supabase
         .from("chat_sessions")
         .update({ title: content.slice(0, 50) })
         .eq("id", targetSessionId)
-      fetchSessions()
     }
 
     // 2. AIの応答を取得（roleがuserの場合のみ）
@@ -228,10 +226,6 @@ export function useChat() {
     }
   }, [supabase, currentSession])
 
-  // 初回ロード時にセッション一覧を取得
-  useEffect(() => {
-    fetchSessions()
-  }, [fetchSessions])
 
   return {
     sessions,
