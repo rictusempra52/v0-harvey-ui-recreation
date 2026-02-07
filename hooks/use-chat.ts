@@ -152,16 +152,32 @@ export function useChat() {
           if (done) break
 
           const chunk = decoder.decode(value, { stream: true })
+          
           // Vercel AI SDK のデータ形式（0:"..."）からテキストを抽出
           const lines = chunk.split("\n")
-          for (const line of lines) {
-            if (line) {
+          for (let i = 0; i < lines.length; i++) {
+            const line = lines[i]
+            if (line.startsWith('0:')) {
+              try {
+                // 0:"text" の形式から文字列のみを取り出す
+                const text = JSON.parse(line.substring(2))
+                aiContent += text
+              } catch (e) {
+                // パースに失敗した場合はそのまま結合
+                aiContent += line
+              }
+            } else if (!line.includes(":")) {
+              // プロトコル形式でない場合はそのまま結合し、改行を復元
               aiContent += line
-              setMessages(prev => 
-                prev.map(m => m.id === "temp-ai-id" ? { ...m, content: aiContent } : m)
-              )
+              if (i < lines.length - 1) {
+                aiContent += "\n"
+              }
             }
           }
+
+          setMessages(prev => 
+            prev.map(m => m.id === "temp-ai-id" ? { ...m, content: aiContent } : m)
+          )
         }
 
         // AIの応答をDBに保存
