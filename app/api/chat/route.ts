@@ -103,12 +103,13 @@ IDは、コンテキスト内の Document ID を正確に記述してくださ�
     const now = new Date().toLocaleTimeString();
     console.error(`[${now}] --- Chat API Error ---`);
     console.error(error);
-    const errorBody = error instanceof Error ? { 
-      message: error.message,
-      name: error.name,
-      stack: error.stack,
-    } : error;
-    
+
+    // Do not expose internal error details or stack traces to the client.
+    // Return a generic error response while logging full details on the server.
+    const errorBody = {
+      message: 'Internal server error',
+    };
+
     return new Response(JSON.stringify({ error: errorBody }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
