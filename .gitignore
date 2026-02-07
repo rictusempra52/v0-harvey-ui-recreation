@@ -25,3 +25,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# google cloud 
+gen-lang-client-0368641051-3acd2bfb5a7a.json
