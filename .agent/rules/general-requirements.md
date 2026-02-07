@@ -4,6 +4,7 @@ trigger: always_on
 
 # General Requirements
 
-- **Language**: 必ず日本語で回答してください。
-- **Plans**: implementation planも日本語で作成してください。
-- **Reference**: プロジェクト固有のルールについては、`GEMINI.md` および `.agent/` 内の他のルールファイルを参照してください（現在は `.agent/frontend-rules.md` など）。
+- **Language**: Answer in Japanese.
+- **Plans**: Also write your implementation plan in Japanese.
+- **Reference**: For project-specific rules, please refer to `GEMINI.md` and other rule files in `.agent/` (currently `.agent/frontend-rules.md`, etc.).
+- If you are creating an implementation plan for modifications that change the backend processing flow, please visualize the flow using mermaid, for example.
