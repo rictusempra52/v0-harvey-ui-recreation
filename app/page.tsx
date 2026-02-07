@@ -192,7 +192,7 @@ function DashboardContent() {
       }
 
       if (session) {
-        await sendMessage(messageData.user, "user")
+        await sendMessage(messageData.user, "user", undefined, session.id)
         // シナリオの回答はデモなので、ここではAIに任せるか、あるいは特定の内容を送信する
         // 今回はシンプルにユーザーの入力を送信し、AIの応答を待つ形にする
       }
@@ -210,7 +210,7 @@ function DashboardContent() {
       }
 
       if (session) {
-        await sendMessage(content, "user")
+        await sendMessage(content, "user", undefined, session.id)
       }
     }
   }
