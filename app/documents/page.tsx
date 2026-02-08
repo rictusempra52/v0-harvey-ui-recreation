@@ -9,8 +9,30 @@ import {
     Trash2Icon,
     DownloadIcon,
     Loader2,
-    FileIcon
+    FileIcon,
+    PencilIcon,
+    AlertTriangleIcon
 } from "lucide-react"
+import { toast } from "sonner"
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogFooter,
+} from "@/components/ui/dialog"
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -42,8 +64,12 @@ export default function DocumentsPage() {
     const [selectedMansion, setSelectedMansion] = useState<{ name: string, id: string } | null>(null)
     const [documents, setDocuments] = useState<Document[]>([])
     const [loading, setLoading] = useState(false)
-    const [deleting, setDeleting] = useState<string | null>(null)
     const [uploadingFile, setUploadingFile] = useState<{ name: string, progress: number } | null>(null)
+    const [editingDoc, setEditingDoc] = useState<Document | null>(null)
+    const [newFileName, setNewFileName] = useState("")
+    const [updating, setUpdating] = useState(false)
+    const [confirmDelete, setConfirmDelete] = useState<{ id: string, path: string } | null>(null)
+    const [deleting, setDeleting] = useState<string | null>(null)
 
     const supabase = createClient()
 
@@ -143,29 +169,71 @@ export default function DocumentsPage() {
         setUploadingFile(prev => prev ? { ...prev, progress } : null)
     }, [])
 
+    const handleEditClick = (doc: Document) => {
+        setEditingDoc(doc)
+        setNewFileName(doc.file_name)
+    }
+
+    const handleUpdateName = async () => {
+        if (!editingDoc || !newFileName.trim()) return
+
+        setUpdating(true)
+        const { error } = await supabase
+            .from('documents')
+            .update({ file_name: newFileName.trim() })
+            .eq('id', editingDoc.id)
+
+        if (error) {
+            toast.error("名前の変更に失敗しました")
+        } else {
+            toast.success("名前を変更しました")
+            setEditingDoc(null)
+        }
+        setUpdating(false)
+    }
+
     const handleDelete = async (id: string, path: string) => {
         setDeleting(id)
+        setConfirmDelete(null)
 
-        // 1. Storageから削除（本来はDB削除トリガーでやるべきだが今回は手動）
-        // バケット名は固定で 'pdfs'
-        const { error: storageError } = await supabase.storage
-            .from('pdfs')
-            .remove([path])
+        try {
+            // 1. Storageから削除
+            // path は 'apartment_id/filename.pdf' の形式を想定
+            const { error: storageError } = await supabase.storage
+                .from('pdfs')
+                .remove([path])
 
-        if (storageError) {
-            console.error('Storage update failed:', storageError)
+            if (storageError) {
+                console.error('Storage removal failed:', storageError)
+                toast.error(`ファイルの削除に失敗しました: ${storageError.message}`)
+                // Storage削除に失敗してもDB削除を試みるか、ここで止めるか検討
+                // 今回は不整合を避けるため、Storage削除失敗時はDB削除も行わないようにする
+                setDeleting(null)
+                return
+            }
+
+            // 2. DBから削除
+            const { data, error: dbError } = await supabase
+                .from('documents')
+                .delete()
+                .eq('id', id)
+                .select()
+
+            if (dbError) {
+                console.error('DB deletion failed:', dbError)
+                toast.error(`データベースからの削除に失敗しました: ${dbError.message}`)
+            } else if (!data || data.length === 0) {
+                toast.error("削除対象のデータが見つかりませんでした。権限がない可能性があります。")
+            } else {
+                toast.success("文書を完全に削除しました")
+                setDocuments(prev => prev.filter(d => d.id !== id))
+            }
+        } catch (err: any) {
+            console.error('Unexpected error during deletion:', err)
+            toast.error("削除中に予期せぬエラーが発生しました")
+        } finally {
+            setDeleting(null)
         }
-
-        // 2. DBから削除
-        const { error: dbError } = await supabase
-            .from('documents')
-            .delete()
-            .eq('id', id)
-
-        if (!dbError) {
-            setDocuments(prev => prev.filter(d => d.id !== id))
-        }
-        setDeleting(null)
     }
 
     const getFileStatusBadge = (isUploaded: boolean, progress: number = 0) => {
@@ -304,21 +372,29 @@ export default function DocumentsPage() {
                                                                 <Button
                                                                     variant="ghost"
                                                                     size="icon"
+                                                                    className="text-muted-foreground hover:text-primary"
+                                                                    onClick={() => handleEditClick(doc)}
+                                                                >
+                                                                    <PencilIcon className="h-5 w-5" />
+                                                                </Button>
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="icon"
                                                                     onClick={() => window.open(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/pdfs/${doc.file_path}`, '_blank')}
                                                                 >
-                                                                    <DownloadIcon className="h-4 w-4" />
+                                                                    <DownloadIcon className="h-5 w-5" />
                                                                 </Button>
                                                                 <Button
                                                                     variant="ghost"
                                                                     size="icon"
                                                                     className="text-destructive hover:text-destructive/90 hover:bg-destructive/10"
-                                                                    onClick={() => handleDelete(doc.id, doc.file_path)}
+                                                                    onClick={() => setConfirmDelete({ id: doc.id, path: doc.file_path })}
                                                                     disabled={deleting === doc.id}
                                                                 >
                                                                     {deleting === doc.id ? (
-                                                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                                                        <Loader2 className="h-5 w-5 animate-spin" />
                                                                     ) : (
-                                                                        <Trash2Icon className="h-4 w-4" />
+                                                                        <Trash2Icon className="h-5 w-5" />
                                                                     )}
                                                                 </Button>
                                                             </div>
@@ -333,6 +409,63 @@ export default function DocumentsPage() {
                         </ScrollArea>
                     </div>
                 </div>
+
+                {/* 名前変更ダイアログ */}
+                <Dialog open={!!editingDoc} onOpenChange={(open: boolean) => !open && setEditingDoc(null)}>
+                    <DialogContent className="sm:max-w-md">
+                        <DialogHeader>
+                            <DialogTitle>文書名の変更</DialogTitle>
+                        </DialogHeader>
+                        <div className="grid gap-4 py-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="name">新しい名前</Label>
+                                <Input
+                                    id="name"
+                                    value={newFileName}
+                                    onChange={(e) => setNewFileName(e.target.value)}
+                                    className="h-12 text-lg"
+                                    placeholder="文書名を入力してください"
+                                />
+                            </div>
+                        </div>
+                        <DialogFooter className="flex gap-2">
+                            <Button variant="outline" onClick={() => setEditingDoc(null)} className="h-12 flex-1">
+                                キャンセル
+                            </Button>
+                            <Button onClick={handleUpdateName} disabled={updating} className="h-12 flex-1">
+                                {updating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                                保存する
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
+
+                {/* 削除確認ダイアログ */}
+                <AlertDialog open={!!confirmDelete} onOpenChange={(open: boolean) => !open && setConfirmDelete(null)}>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+                                <AlertTriangleIcon className="h-6 w-6" />
+                                文書の削除
+                            </AlertDialogTitle>
+                            <AlertDialogDescription className="text-lg">
+                                この文書を削除してもよろしいですか？<br />
+                                この操作は取り消せません。
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter className="flex flex-col sm:flex-row gap-2">
+                            <AlertDialogCancel className="h-14 text-lg flex-1">
+                                やめる（残す）
+                            </AlertDialogCancel>
+                            <AlertDialogAction
+                                onClick={() => confirmDelete && handleDelete(confirmDelete.id, confirmDelete.path)}
+                                className="h-14 text-lg bg-destructive hover:bg-destructive/90 flex-1"
+                            >
+                                はい、削除します
+                            </AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
             </ResizablePanel>
         </ResizablePanelGroup>
     )
