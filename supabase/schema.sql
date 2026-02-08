@@ -102,6 +102,9 @@ CREATE POLICY "Allow authenticated insert documents" ON documents
 CREATE POLICY "Allow authenticated update documents" ON documents
   FOR UPDATE TO authenticated USING (true);
 
+CREATE POLICY "Allow authenticated delete documents" ON documents
+  FOR DELETE TO authenticated USING (true);
+
 -- chat_sessions: ユーザーは自分のセッションのみ操作可能
 CREATE POLICY "Users own chat sessions select" ON chat_sessions
   FOR SELECT TO authenticated USING (auth.uid() = user_id);
