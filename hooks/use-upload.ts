@@ -4,8 +4,8 @@ import { useAuth } from '@/lib/auth-context'
 
 export type UploadParams = {
   file: File
-  bucketName?: string
-  apartmentId?: string // メタデータ保存用（将来的）
+  bucketName?: string // GCS のバケット名（関数側でデフォルトあり）
+  apartmentId: string // GCS のパス構造に必須
 }
 
 export type UploadResult = {
@@ -20,7 +20,7 @@ export function useUpload() {
   const { user } = useAuth()
   const supabase = createClient()
 
-  const uploadFile = async ({ file, bucketName = 'pdfs' }: UploadParams): Promise<UploadResult | null> => {
+  const uploadFile = async ({ file, apartmentId }: UploadParams): Promise<UploadResult | null> => {
     if (!user) {
       setError(new Error('User not authenticated'))
       return null
@@ -31,28 +31,50 @@ export function useUpload() {
       setProgress(0)
       setError(null)
 
-      // ファイル名をユニークにする
-      const fileExt = file.name.split('.').pop()
-      const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`
-      const filePath = `${user.id}/${fileName}`
+      // 1. GCS 署名付きURLを取得
+      const { data, error: functionError } = await supabase.functions.invoke('get-gcs-upload-url', {
+        body: {
+          fileName: file.name,
+          contentType: file.type,
+          apartmentId: apartmentId
+        }
+      });
 
-      const { error: uploadError, data } = await (supabase.storage
-        .from(bucketName)
-        .upload(filePath, file, {
-          onUploadProgress: (progress: any) => {
-            const percent = (progress.loaded / progress.total) * 100
-            setProgress(Math.round(percent))
+      if (functionError || !data?.uploadUrl) {
+        throw new Error(`Failed to get upload URL: ${functionError?.message || 'Unknown error'}`);
+      }
+
+      const { uploadUrl, filePath } = data;
+
+      // 2. GCS へ直接アップロード (XMLHttpRequest を使用して進捗監視)
+      return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('PUT', uploadUrl);
+        xhr.setRequestHeader('Content-Type', file.type);
+
+        xhr.upload.onprogress = (event) => {
+          if (event.lengthComputable) {
+            const percent = (event.loaded / event.total) * 100;
+            setProgress(Math.round(percent));
           }
-        } as any))
+        };
 
-      if (uploadError) {
-        throw uploadError
-      }
-      
-      return {
-        path: filePath,
-        url: `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${bucketName}/${filePath}`
-      }
+        xhr.onload = () => {
+          if (xhr.status === 200) {
+            resolve({
+              path: filePath,
+              url: uploadUrl.split('?')[0] // クエリパラメータを除いた純粋なURL
+            });
+          } else {
+            console.error('GCS Upload Failed:', xhr.responseText);
+            reject(new Error(`GCS Upload failed with status ${xhr.status}`));
+          }
+        };
+
+        xhr.onerror = () => reject(new Error('GCS Upload XHR error'));
+        xhr.send(file);
+      });
+
     } catch (err) {
       console.error('Upload error:', err)
       setError(err instanceof Error ? err : new Error('Upload failed'))
