@@ -33,6 +33,15 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from "@/components/ui/table"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -70,6 +79,7 @@ export default function DocumentsPage() {
     const [updating, setUpdating] = useState(false)
     const [confirmDelete, setConfirmDelete] = useState<{ id: string, path: string } | null>(null)
     const [deleting, setDeleting] = useState<string | null>(null)
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
 
     const supabase = createClient()
 
@@ -206,8 +216,7 @@ export default function DocumentsPage() {
             if (storageError) {
                 console.error('Storage removal failed:', storageError)
                 toast.error(`ファイルの削除に失敗しました: ${storageError.message}`)
-                // Storage削除に失敗してもDB削除を試みるか、ここで止めるか検討
-                // 今回は不整合を避けるため、Storage削除失敗時はDB削除も行わないようにする
+                // Storage削除失敗時はDB削除も行わないようにする
                 setDeleting(null)
                 return
             }
@@ -227,6 +236,11 @@ export default function DocumentsPage() {
             } else {
                 toast.success("文書を完全に削除しました")
                 setDocuments(prev => prev.filter(d => d.id !== id))
+                setSelectedIds(prev => {
+                    const next = new Set(prev)
+                    next.delete(id)
+                    return next
+                })
             }
         } catch (err: any) {
             console.error('Unexpected error during deletion:', err)
@@ -234,6 +248,66 @@ export default function DocumentsPage() {
         } finally {
             setDeleting(null)
         }
+    }
+
+    const handleBulkDelete = async () => {
+        if (selectedIds.size === 0) return
+
+        const idsToDelete = Array.from(selectedIds)
+        const docsToDelete = documents.filter(doc => selectedIds.has(doc.id))
+
+        setDeleting("bulk")
+        setConfirmDelete(null)
+
+        try {
+            // 一括削除（Storage）
+            const { error: storageError } = await supabase.storage
+                .from('pdfs')
+                .remove(docsToDelete.map(doc => doc.file_path))
+
+            if (storageError) {
+                toast.error("一部のファイルの削除に失敗しました")
+            }
+
+            // 一括削除（DB）
+            const { data, error: dbError } = await supabase
+                .from('documents')
+                .delete()
+                .in('id', idsToDelete)
+                .select()
+
+            if (dbError) {
+                toast.error("データベースからの削除に失敗しました")
+            } else if (data) {
+                toast.success(`${data.length}件の文書を削除しました`)
+                setDocuments(prev => prev.filter(d => !selectedIds.has(d.id)))
+                setSelectedIds(new Set())
+            }
+        } catch (err) {
+            toast.error("一括削除中にエラーが発生しました")
+        } finally {
+            setDeleting(null)
+        }
+    }
+
+    const toggleSelectAll = () => {
+        if (selectedIds.size === documents.length) {
+            setSelectedIds(new Set())
+        } else {
+            setSelectedIds(new Set(documents.map(doc => doc.id)))
+        }
+    }
+
+    const toggleSelect = (id: string) => {
+        setSelectedIds(prev => {
+            const next = new Set(prev)
+            if (next.has(id)) {
+                next.delete(id)
+            } else {
+                next.add(id)
+            }
+            return next
+        })
     }
 
     const getFileStatusBadge = (isUploaded: boolean, progress: number = 0) => {
@@ -308,7 +382,9 @@ export default function DocumentsPage() {
                                 ) : (
                                     <>
                                         <Card className="p-6">
-                                            <h3 className="text-lg font-semibold mb-4">新規アップロード</h3>
+                                            <div className="flex items-center justify-between mb-4">
+                                                <h3 className="text-lg font-semibold">新規アップロード</h3>
+                                            </div>
                                             <PdfUploader
                                                 onUploadComplete={handleUploadComplete}
                                                 onUploadStart={handleUploadStart}
@@ -317,7 +393,21 @@ export default function DocumentsPage() {
                                         </Card>
 
                                         <div className="space-y-4">
-                                            <h3 className="text-lg font-semibold">登録済みドキュメント ({documents.length})</h3>
+                                            <div className="flex items-center justify-between">
+                                                <h3 className="text-lg font-semibold">登録済みドキュメント ({documents.length})</h3>
+                                                {selectedIds.size > 0 && (
+                                                    <Button
+                                                        variant="destructive"
+                                                        size="sm"
+                                                        onClick={() => setConfirmDelete({ id: "bulk", path: "bulk" })}
+                                                        disabled={deleting !== null}
+                                                        className="h-10 px-4"
+                                                    >
+                                                        <Trash2Icon className="h-4 w-4 mr-2" />
+                                                        選択した{selectedIds.size}件を削除
+                                                    </Button>
+                                                )}
+                                            </div>
 
                                             {loading ? (
                                                 <div className="flex justify-center py-10">
@@ -328,78 +418,116 @@ export default function DocumentsPage() {
                                                     ドキュメントはまだありません
                                                 </div>
                                             ) : (
-                                                <div className="grid gap-4">
-                                                    {/* アップロード中のプレースホルダー */}
-                                                    {uploadingFile && (
-                                                        <Card className="p-4 flex items-center justify-between border-blue-200 bg-blue-50/30">
-                                                            <div className="flex items-center gap-4 min-w-0">
-                                                                <div className="h-10 w-10 rounded-lg bg-blue-100 flex items-center justify-center shrink-0">
-                                                                    <FileTextIcon className="h-5 w-5 text-blue-600 animate-bounce" />
-                                                                </div>
-                                                                <div className="min-w-0">
-                                                                    <p className="font-semibold truncate text-blue-900">{uploadingFile.name}</p>
-                                                                    <div className="flex items-center gap-3 mt-1">
-                                                                        {getFileStatusBadge(false, uploadingFile.progress)}
-                                                                        {getOcrStatusBadge('pending', false)}
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                            <Loader2 className="h-5 w-5 animate-spin text-blue-500" />
-                                                        </Card>
-                                                    )}
+                                                <div className="border rounded-xl bg-card overflow-hidden">
+                                                    <Table>
+                                                        <TableHeader>
+                                                            <TableRow className="hover:bg-transparent bg-muted/30">
+                                                                <TableHead className="w-[50px]">
+                                                                    <Checkbox
+                                                                        checked={selectedIds.size === documents.length && documents.length > 0}
+                                                                        onCheckedChange={toggleSelectAll}
+                                                                        aria-label="すべて選択"
+                                                                    />
+                                                                </TableHead>
+                                                                <TableHead className="min-w-[250px]">ファイル名</TableHead>
+                                                                <TableHead>アップロード日</TableHead>
+                                                                <TableHead>ステータス</TableHead>
+                                                                <TableHead className="text-right">操作</TableHead>
+                                                            </TableRow>
+                                                        </TableHeader>
+                                                        <TableBody>
+                                                            {/* アップロード中のプレースホルダー */}
+                                                            {uploadingFile && (
+                                                                <TableRow className="border-blue-100 bg-blue-50/20">
+                                                                    <TableCell>
+                                                                        <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
+                                                                    </TableCell>
+                                                                    <TableCell>
+                                                                        <div className="flex items-center gap-2">
+                                                                            <FileTextIcon className="h-4 w-4 text-blue-500 animate-pulse" />
+                                                                            <span className="font-medium text-blue-900 truncate max-w-[200px]">{uploadingFile.name}</span>
+                                                                        </div>
+                                                                    </TableCell>
+                                                                    <TableCell>
+                                                                        <span className="text-sm text-blue-600">アップロード中...</span>
+                                                                    </TableCell>
+                                                                    <TableCell>
+                                                                        <div className="flex gap-2">
+                                                                            {getFileStatusBadge(false, uploadingFile.progress)}
+                                                                            {getOcrStatusBadge('pending', false)}
+                                                                        </div>
+                                                                    </TableCell>
+                                                                    <TableCell className="text-right">
+                                                                        <Loader2 className="h-4 w-4 animate-spin inline-block" />
+                                                                    </TableCell>
+                                                                </TableRow>
+                                                            )}
 
-                                                    {documents.map((doc) => (
-                                                        <Card key={doc.id} className="p-4 flex items-center justify-between hover:bg-accent/5 transition-colors border-border/60">
-                                                            <div className="flex items-center gap-4 min-w-0">
-                                                                <div className="h-12 w-12 rounded-lg bg-red-50 flex items-center justify-center shrink-0 border border-red-100">
-                                                                    <FileTextIcon className="h-6 w-6 text-red-500" />
-                                                                </div>
-                                                                <div className="min-w-0">
-                                                                    <p className="font-bold text-lg truncate mb-1">{doc.file_name}</p>
-                                                                    <div className="flex items-center gap-3 flex-wrap">
-                                                                        <span className="text-sm text-muted-foreground font-medium">
+                                                            {documents.map((doc) => (
+                                                                <TableRow key={doc.id} className="group hover:bg-muted/50 transition-colors">
+                                                                    <TableCell>
+                                                                        <Checkbox
+                                                                            checked={selectedIds.has(doc.id)}
+                                                                            onCheckedChange={() => toggleSelect(doc.id)}
+                                                                            aria-label={`${doc.file_name}を選択`}
+                                                                        />
+                                                                    </TableCell>
+                                                                    <TableCell>
+                                                                        <div className="flex items-center gap-3">
+                                                                            <div className="h-10 w-10 rounded-lg bg-red-50 flex items-center justify-center shrink-0 border border-red-100">
+                                                                                <FileTextIcon className="h-5 w-5 text-red-500" />
+                                                                            </div>
+                                                                            <span className="font-bold text-base text-card-foreground truncate max-w-[300px]">{doc.file_name}</span>
+                                                                        </div>
+                                                                    </TableCell>
+                                                                    <TableCell>
+                                                                        <span className="text-sm font-medium text-muted-foreground">
                                                                             {new Date(doc.created_at).toLocaleDateString('ja-JP')}
                                                                         </span>
+                                                                    </TableCell>
+                                                                    <TableCell>
                                                                         <div className="flex items-center gap-2">
                                                                             {getFileStatusBadge(true)}
                                                                             {getOcrStatusBadge(doc.ocr_status, true)}
                                                                         </div>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-
-                                                            <div className="flex items-center gap-2">
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="icon"
-                                                                    className="text-muted-foreground hover:text-primary"
-                                                                    onClick={() => handleEditClick(doc)}
-                                                                >
-                                                                    <PencilIcon className="h-5 w-5" />
-                                                                </Button>
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="icon"
-                                                                    onClick={() => window.open(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/pdfs/${doc.file_path}`, '_blank')}
-                                                                >
-                                                                    <DownloadIcon className="h-5 w-5" />
-                                                                </Button>
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="icon"
-                                                                    className="text-destructive hover:text-destructive/90 hover:bg-destructive/10"
-                                                                    onClick={() => setConfirmDelete({ id: doc.id, path: doc.file_path })}
-                                                                    disabled={deleting === doc.id}
-                                                                >
-                                                                    {deleting === doc.id ? (
-                                                                        <Loader2 className="h-5 w-5 animate-spin" />
-                                                                    ) : (
-                                                                        <Trash2Icon className="h-5 w-5" />
-                                                                    )}
-                                                                </Button>
-                                                            </div>
-                                                        </Card>
-                                                    ))}
+                                                                    </TableCell>
+                                                                    <TableCell className="text-right">
+                                                                        <div className="flex items-center justify-end gap-1">
+                                                                            <Button
+                                                                                variant="ghost"
+                                                                                size="icon"
+                                                                                className="h-10 w-10 text-muted-foreground hover:text-primary hover:bg-primary/10"
+                                                                                onClick={() => handleEditClick(doc)}
+                                                                            >
+                                                                                <PencilIcon className="h-5 w-5" />
+                                                                            </Button>
+                                                                            <Button
+                                                                                variant="ghost"
+                                                                                size="icon"
+                                                                                className="h-10 w-10 text-muted-foreground hover:text-foreground hover:bg-accent"
+                                                                                onClick={() => window.open(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/pdfs/${doc.file_path}`, '_blank')}
+                                                                            >
+                                                                                <DownloadIcon className="h-5 w-5" />
+                                                                            </Button>
+                                                                            <Button
+                                                                                variant="ghost"
+                                                                                size="icon"
+                                                                                className="h-10 w-10 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                                                                onClick={() => setConfirmDelete({ id: doc.id, path: doc.file_path })}
+                                                                                disabled={deleting === doc.id}
+                                                                            >
+                                                                                {deleting === doc.id ? (
+                                                                                    <Loader2 className="h-5 w-5 animate-spin" />
+                                                                                ) : (
+                                                                                    <Trash2Icon className="h-5 w-5" />
+                                                                                )}
+                                                                            </Button>
+                                                                        </div>
+                                                                    </TableCell>
+                                                                </TableRow>
+                                                            ))}
+                                                        </TableBody>
+                                                    </Table>
                                                 </div>
                                             )}
                                         </div>
@@ -446,10 +574,14 @@ export default function DocumentsPage() {
                         <AlertDialogHeader>
                             <AlertDialogTitle className="flex items-center gap-2 text-destructive">
                                 <AlertTriangleIcon className="h-6 w-6" />
-                                文書の削除
+                                {confirmDelete?.id === "bulk" ? "選択した文書の一括削除" : "文書の削除"}
                             </AlertDialogTitle>
                             <AlertDialogDescription className="text-lg">
-                                この文書を削除してもよろしいですか？<br />
+                                {confirmDelete?.id === "bulk"
+                                    ? `選択された ${selectedIds.size} 件の文書をすべて削除してもよろしいですか？`
+                                    : "この文書を削除してもよろしいですか？"
+                                }
+                                <br />
                                 この操作は取り消せません。
                             </AlertDialogDescription>
                         </AlertDialogHeader>
@@ -458,7 +590,14 @@ export default function DocumentsPage() {
                                 やめる（残す）
                             </AlertDialogCancel>
                             <AlertDialogAction
-                                onClick={() => confirmDelete && handleDelete(confirmDelete.id, confirmDelete.path)}
+                                onClick={() => {
+                                    if (!confirmDelete) return
+                                    if (confirmDelete.id === "bulk") {
+                                        handleBulkDelete()
+                                    } else {
+                                        handleDelete(confirmDelete.id, confirmDelete.path)
+                                    }
+                                }}
                                 className="h-14 text-lg bg-destructive hover:bg-destructive/90 flex-1"
                             >
                                 はい、削除します
