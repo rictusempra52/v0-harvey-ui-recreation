@@ -11,9 +11,10 @@ type PdfUploaderProps = {
     onUploadStart?: (fileName: string) => void
     onProgress?: (progress: number) => void
     className?: string
+    apartmentId: string // 追加: GCSパスに必要
 }
 
-export function PdfUploader({ onUploadComplete, onUploadStart, onProgress, className }: PdfUploaderProps) {
+export function PdfUploader({ onUploadComplete, onUploadStart, onProgress, className, apartmentId }: PdfUploaderProps) {
     const [isDragOver, setIsDragOver] = useState(false)
     const [file, setFile] = useState<File | null>(null)
     const fileInputRef = useRef<HTMLInputElement>(null)
@@ -58,7 +59,7 @@ export function PdfUploader({ onUploadComplete, onUploadStart, onProgress, class
         if (!file) return
 
         onUploadStart?.(file.name)
-        const result = await uploadFile({ file })
+        const result = await uploadFile({ file, apartmentId })
 
         if (result) {
             onUploadComplete?.(result.path, file.name)

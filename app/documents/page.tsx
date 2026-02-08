@@ -207,19 +207,15 @@ export default function DocumentsPage() {
         setConfirmDelete(null)
 
         try {
-            // 1. Storageから削除
-            // path は 'apartment_id/filename.pdf' の形式を想定
-            const { error: storageError } = await supabase.storage
-                .from('pdfs')
-                .remove([path])
+            // 1. Storageから削除 (GCS と Supabase Storage 両方を試みる)
+            // GCSからの削除
+            const { error: gcsError } = await supabase.functions.invoke('delete-gcs-object', {
+                body: { filePaths: [path] }
+            })
+            if (gcsError) console.warn('GCS removal failed or skipped:', gcsError)
 
-            if (storageError) {
-                console.error('Storage removal failed:', storageError)
-                toast.error(`ファイルの削除に失敗しました: ${storageError.message}`)
-                // Storage削除失敗時はDB削除も行わないようにする
-                setDeleting(null)
-                return
-            }
+            // Supabase Storageからの削除 (互換性のため)
+            await supabase.storage.from('pdfs').remove([path])
 
             // 2. DBから削除
             const { data, error: dbError } = await supabase
@@ -260,14 +256,14 @@ export default function DocumentsPage() {
         setConfirmDelete(null)
 
         try {
-            // 一括削除（Storage）
-            const { error: storageError } = await supabase.storage
-                .from('pdfs')
-                .remove(docsToDelete.map(doc => doc.file_path))
+            // 一括削除（GCS）
+            const { error: gcsError } = await supabase.functions.invoke('delete-gcs-object', {
+                body: { filePaths: docsToDelete.map(doc => doc.file_path) }
+            })
+            if (gcsError) console.warn('Bulk GCS removal failed:', gcsError)
 
-            if (storageError) {
-                toast.error("一部のファイルの削除に失敗しました")
-            }
+            // 一括削除（Supabase Storage - 互換性のため）
+            await supabase.storage.from('pdfs').remove(docsToDelete.map(doc => doc.file_path))
 
             // 一括削除（DB）
             const { data, error: dbError } = await supabase
@@ -389,6 +385,7 @@ export default function DocumentsPage() {
                                                 onUploadComplete={handleUploadComplete}
                                                 onUploadStart={handleUploadStart}
                                                 onProgress={handleProgress}
+                                                apartmentId={selectedMansion.id}
                                             />
                                         </Card>
 

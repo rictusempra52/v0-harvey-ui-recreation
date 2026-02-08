@@ -1,10 +1,11 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 import { create as createJWT, getNumericDate } from "https://deno.land/x/djwt@v3.0.1/mod.ts";
+import { Storage } from "npm:@google-cloud/storage";
 
 interface DocumentRecord {
   id: string;
-  file_path: string;
+  file_path: string; // This is now expected to be a GCS path
   apartment_id: string;
 }
 
@@ -77,85 +78,112 @@ function convertToQuadPoints(normalizedVertices: any[], width: number, height: n
 Deno.serve(async (req: Request) => {
   let recordId: string | null = null;
   
-  const getDiagnostics = () => {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
-    let sk = Deno.env.get('OCR_SERVICE_ROLE_KEY') || Deno.env.get('SERVICE_ROLE_KEY') || Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
-    const anon = Deno.env.get('SUPABASE_ANON_KEY') || Deno.env.get('ANON_KEY') || '';
-    if (sk && !sk.includes('.')) {
-      try {
-        const decoded = atob(sk.trim());
-        if (decoded.includes('.')) sk = decoded;
-      } catch (e) {}
-    }
-    return { 
-        supabaseUrl, 
-        supabaseServiceKey: sk, 
-        supabaseAnonKey: anon, 
-        info: `V40_STACK: sk=${sk.length}`, 
-        detail: `D: ${sk.substring(0, 5)}...${sk.substring(sk.length - 5)}`
-    };
-  };
-
   try {
     const body = await req.json();
     const { record } = body as { record: DocumentRecord };
     if (!record?.id) return new Response('Invalid record', { status: 400 });
     recordId = record.id;
 
-    const { supabaseUrl, supabaseServiceKey, supabaseAnonKey, info, detail } = getDiagnostics();
-    const supabase = createClient(supabaseUrl, supabaseServiceKey || supabaseAnonKey);
+    // Supabase Auth
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+    let sk = Deno.env.get('OCR_SERVICE_ROLE_KEY') || Deno.env.get('SERVICE_ROLE_KEY') || Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+    if (sk && !sk.includes('.')) {
+      try { sk = atob(sk.trim()); } catch (e) {}
+    }
+    const supabase = createClient(supabaseUrl, sk);
 
+    // Initial status update
     await supabase.from('documents').update({ ocr_status: 'processing' }).eq('id', recordId);
 
+    // Google Cloud Auth
     const gcsJson = Deno.env.get('GOOGLE_SERVICE_ACCOUNT_JSON');
     const processorId = Deno.env.get('GOOGLE_DOC_AI_PROCESSOR_ID');
     const gcsLocation = Deno.env.get('GOOGLE_CLOUD_LOCATION') ?? 'us';
+    const bucketName = Deno.env.get('GCS_BUCKET_NAME') || 'v0-harvey-docs';
+    
     if (!gcsJson || !processorId) throw new Error('Missing Google credentials');
-
+    
     let rawGcsJson = gcsJson;
     if (rawGcsJson && !rawGcsJson.trim().startsWith('{')) {
       try { rawGcsJson = atob(rawGcsJson.trim()); } catch (e) {}
     }
-    const gcs = JSON.parse(rawGcsJson);
-    const projectId = gcs.project_id;
-
-    const { data: fileData, error: downloadError } = await supabase.storage
-      .from('pdfs')
-      .download(record.file_path);
-
-    if (downloadError || !fileData) {
-      throw new Error(`Download failed: ${JSON.stringify(downloadError)}`);
-    }
-
+    const credentials = JSON.parse(rawGcsJson);
+    const projectId = credentials.project_id;
     const accessToken = await getAccessToken(rawGcsJson);
-    const arrayBuffer = await fileData.arrayBuffer();
-    const bytes = new Uint8Array(arrayBuffer);
+
+    // GCS Storage client for result retrieval
+    const storage = new Storage({ credentials, projectId });
+
+    // 1. Batch Processing Request
+    const inputGcsUri = `gs://${bucketName}/${record.file_path}`;
+    const outputGcsUriPrefix = `gs://${bucketName}/ocr-results/${recordId}/${Date.now()}/`;
     
-    // Stack-safe conversion
-    let binary = '';
-    for (let i = 0; i < bytes.byteLength; i++) {
-        binary += String.fromCharCode(bytes[i]);
-    }
-    const base64Content = btoa(binary);
+    const endpoint = `https://${gcsLocation}-documentai.googleapis.com/v1/projects/${projectId}/locations/${gcsLocation}/processors/${processorId}:batchProcess`;
     
-    const endpoint = `https://${gcsLocation}-documentai.googleapis.com/v1/projects/${projectId}/locations/${gcsLocation}/processors/${processorId}:process`;
+    const batchRequest = {
+      inputDocuments: {
+        gcsDocuments: {
+          documents: [{ gcsUri: inputGcsUri, mimeType: "application/pdf" }]
+        }
+      },
+      documentOutputConfig: {
+        gcsOutputConfig: { gcsUri: outputGcsUriPrefix }
+      }
+    };
+
+    console.log(`Starting batch process for ${inputGcsUri}`);
     const docAiResponse = await fetch(endpoint, {
       method: "POST",
       headers: { "Authorization": `Bearer ${accessToken}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ rawDocument: { content: base64Content, mimeType: "application/pdf" } }),
+      body: JSON.stringify(batchRequest),
     });
 
-    if (!docAiResponse.ok) throw new Error(`Document AI API Error: ${await docAiResponse.text()}`);
+    if (!docAiResponse.ok) throw new Error(`Document AI Batch API Error: ${await docAiResponse.text()}`);
 
-    const resultBody = await docAiResponse.json();
-    const document = resultBody.document || resultBody;
+    const operation = await docAiResponse.json();
+    const operationName = operation.name;
+    console.log(`Operation started: ${operationName}`);
+
+    // 2. Polling for completion
+    let isDone = false;
+    let pollCount = 0;
+    const maxPolls = 60; // 5 seconds * 60 = 300 seconds (5 minutes)
     
-    let extractedText = document.text || "";
-    if (!extractedText && document.documentLayout) {
-        extractedText = document.documentLayout.blocks?.map((b: any) => b.textBlock?.text).join("\n") || "";
+    while (!isDone && pollCount < maxPolls) {
+      await new Promise(resolve => setTimeout(resolve, 5000));
+      pollCount++;
+      
+      const opStatusResponse = await fetch(`https://${gcsLocation}-documentai.googleapis.com/v1/${operationName}`, {
+        headers: { "Authorization": `Bearer ${accessToken}` }
+      });
+      
+      const opStatus = await opStatusResponse.json();
+      if (opStatus.done) {
+        if (opStatus.error) throw new Error(`Batch process failed: ${JSON.stringify(opStatus.error)}`);
+        isDone = true;
+        console.log("Batch process completed successfully.");
+      } else {
+        console.log(`Still processing... (attempt ${pollCount})`);
+      }
     }
 
-    const ocrPages = (document.pages || []).slice(0, 10).map((page: any) => {
+    if (!isDone) throw new Error("Batch process timed out.");
+
+    // 3. Retrieve and Parse JSON results from GCS
+    // Document AI outputs results in a subfolder: {outputGcsUriPrefix}/{operation_id}/0/
+    const outputPrefix = outputGcsUriPrefix.replace(`gs://${bucketName}/`, "");
+    const [files] = await storage.bucket(bucketName).getFiles({ prefix: outputPrefix });
+    
+    // Find the first JSON file (OCR result)
+    const jsonFile = files.find(f => f.name.endsWith(".json"));
+    if (!jsonFile) throw new Error("Result JSON not found in GCS.");
+
+    const [content] = await jsonFile.download();
+    const resultDoc = JSON.parse(content.toString());
+
+    // Reuse parsing logic
+    let extractedText = resultDoc.text || "";
+    const ocrPages = (resultDoc.pages || []).slice(0, 20).map((page: any) => {
       const { width, height } = page.dimension || { width: 0, height: 0 };
       const blocks = page.blocks?.map((block: any) => ({
           text: extractedText.substring(block.layout?.textAnchor?.textSegments?.[0]?.startIndex || 0, block.layout?.textAnchor?.textSegments?.[0]?.endIndex || 0),
@@ -164,6 +192,7 @@ Deno.serve(async (req: Request) => {
       return { page_number: page.pageNumber, dimensions: { width, height }, blocks };
     });
 
+    // 4. Update Supabase
     await supabase
       .from('documents')
       .update({
@@ -177,13 +206,15 @@ Deno.serve(async (req: Request) => {
 
   } catch (error: any) {
     const message = error instanceof Error ? error.message : String(error);
+    console.error("Master Error:", message);
     if (recordId) {
       try {
-        const { supabaseUrl, supabaseServiceKey, supabaseAnonKey, info, detail } = getDiagnostics();
-        const supabase = createClient(supabaseUrl, supabaseServiceKey || supabaseAnonKey);
+        const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+        let sk = Deno.env.get('OCR_SERVICE_ROLE_KEY') || Deno.env.get('SERVICE_ROLE_KEY') || '';
+        const supabase = createClient(supabaseUrl, sk);
         await supabase.from('documents').update({ 
             ocr_status: 'failed',
-            ocr_text: `${info} | ${detail} | ERROR: ${message}` 
+            ocr_text: `ERROR: ${message}` 
         }).eq('id', recordId);
       } catch (dbErr) { console.error(dbErr); }
     }
