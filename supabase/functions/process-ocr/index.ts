@@ -170,29 +170,53 @@ Deno.serve(async (req: Request) => {
     if (!isDone) throw new Error("Batch process timed out.");
 
     // 3. Retrieve and Parse JSON results from GCS
-    // Document AI outputs results in a subfolder: {outputGcsUriPrefix}/{operation_id}/0/
     const outputPrefix = outputGcsUriPrefix.replace(`gs://${bucketName}/`, "");
     const [files] = await storage.bucket(bucketName).getFiles({ prefix: outputPrefix });
     
-    // Find the first JSON file (OCR result)
     const jsonFile = files.find(f => f.name.endsWith(".json"));
     if (!jsonFile) throw new Error("Result JSON not found in GCS.");
 
     const [content] = await jsonFile.download();
     const resultDoc = JSON.parse(content.toString());
-
-    // Reuse parsing logic
+    
+    // --- Result Extraction Logic ---
     let extractedText = resultDoc.text || "";
-    const ocrPages = (resultDoc.pages || []).slice(0, 20).map((page: any) => {
-      const { width, height } = page.dimension || { width: 0, height: 0 };
-      const blocks = page.blocks?.map((block: any) => ({
-          text: extractedText.substring(block.layout?.textAnchor?.textSegments?.[0]?.startIndex || 0, block.layout?.textAnchor?.textSegments?.[0]?.endIndex || 0),
-          quadPoints: convertToQuadPoints(block.layout?.boundingPoly?.normalizedVertices, width, height)
-      })) || [];
-      return { page_number: page.pageNumber, dimensions: { width, height }, blocks };
-    });
+    let ocrPages: any[] = [];
 
-    // 4. Update Supabase
+    // Case A: Standard Document AI format (text + pages)
+    if (resultDoc.pages && resultDoc.pages.length > 0) {
+      ocrPages = resultDoc.pages.slice(0, 50).map((page: any) => {
+        const { width, height } = page.dimension || { width: 0, height: 0 };
+        const blocks = page.blocks?.map((block: any) => ({
+            text: extractedText.substring(block.layout?.textAnchor?.textSegments?.[0]?.startIndex || 0, block.layout?.textAnchor?.textSegments?.[0]?.endIndex || 0),
+            quadPoints: convertToQuadPoints(block.layout?.boundingPoly?.normalizedVertices, width, height)
+        })) || [];
+        return { page_number: page.pageNumber, dimensions: { width, height }, blocks };
+      });
+    } 
+    // Case B: Document Layout Parser format (documentLayout.blocks)
+    else if (resultDoc.documentLayout?.blocks) {
+      const blocks = resultDoc.documentLayout.blocks;
+      // Extract full text if empty
+      if (!extractedText) {
+        extractedText = blocks
+          .map((b: any) => b.textBlock?.text || "")
+          .filter((t: string) => t !== "")
+          .join("\n");
+      }
+      
+      // Generate a simplified page structure (Layout Parser results can span multiple pages but blocks are flat)
+      // For now, group into a single virtual page or try to find pageSpan
+      ocrPages = [{
+        page_number: 1,
+        dimensions: { width: 1000, height: 1000 }, // Dummy dimensions as Layout Parser might not provide them at root
+        blocks: blocks.map((b: any) => ({
+          text: b.textBlock?.text || "",
+          quadPoints: [0,0,0,0,0,0,0,0] // Bounding box info in Layout Parser is structured differently
+        }))
+      }];
+    }
+
     await supabase
       .from('documents')
       .update({
