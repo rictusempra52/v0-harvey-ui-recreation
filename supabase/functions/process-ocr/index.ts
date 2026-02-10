@@ -75,6 +75,42 @@ function convertToQuadPoints(normalizedVertices: any[], width: number, height: n
   ];
 }
 
+/**
+ * 再帰的にテキストを抽出するヘルパー（documentLayout 形式用）
+ */
+function extractTextFromBlocksRecursive(blocks: any[]): string {
+  let text = "";
+  for (const block of blocks) {
+    if (block.textBlock?.text) {
+      text += block.textBlock.text + "\n";
+    }
+    // ネストされたブロックがある場合は再帰的に処理
+    if (block.textBlock?.blocks) {
+      text += extractTextFromBlocksRecursive(block.textBlock.blocks);
+    }
+  }
+  return text;
+}
+
+/**
+ * 再帰的にブロックを平坦化するヘルパー（ocr_data 用）
+ */
+function flattenBlocksRecursive(blocks: any[]): any[] {
+  let flat: any[] = [];
+  for (const block of blocks) {
+    if (block.textBlock?.text) {
+      flat.push({
+        text: block.textBlock.text,
+        quadPoints: [0,0,0,0,0,0,0,0] // Layout Parser では座標取得ロジックが異なるため一旦ダミー
+      });
+    }
+    if (block.textBlock?.blocks) {
+      flat = flat.concat(flattenBlocksRecursive(block.textBlock.blocks));
+    }
+  }
+  return flat;
+}
+
 Deno.serve(async (req: Request) => {
   let recordId: string | null = null;
   
@@ -99,7 +135,7 @@ Deno.serve(async (req: Request) => {
     const gcsJson = Deno.env.get('GOOGLE_SERVICE_ACCOUNT_JSON');
     const processorId = Deno.env.get('GOOGLE_DOC_AI_PROCESSOR_ID');
     const gcsLocation = Deno.env.get('GOOGLE_CLOUD_LOCATION') ?? 'us';
-    const bucketName = Deno.env.get('GCS_BUCKET_NAME') || 'v0-harvey-docs';
+    const bucketName = Deno.env.get('GCS_BUCKET_NAME') || 'shimesukun-harvey';
     
     if (!gcsJson || !processorId) throw new Error('Missing Google credentials');
     
@@ -132,13 +168,18 @@ Deno.serve(async (req: Request) => {
     };
 
     console.log(`Starting batch process for ${inputGcsUri}`);
+    console.log(`Output prefix: ${outputGcsUriPrefix}`);
     const docAiResponse = await fetch(endpoint, {
       method: "POST",
       headers: { "Authorization": `Bearer ${accessToken}`, "Content-Type": "application/json" },
       body: JSON.stringify(batchRequest),
     });
 
-    if (!docAiResponse.ok) throw new Error(`Document AI Batch API Error: ${await docAiResponse.text()}`);
+    if (!docAiResponse.ok) {
+      const errorText = await docAiResponse.text();
+      console.error(`Document AI Batch API Error: ${errorText}`);
+      throw new Error(`Document AI Batch API Error: ${errorText} (Endpoint: ${endpoint}, Input: ${inputGcsUri})`);
+    }
 
     const operation = await docAiResponse.json();
     const operationName = operation.name;
@@ -159,7 +200,10 @@ Deno.serve(async (req: Request) => {
       
       const opStatus = await opStatusResponse.json();
       if (opStatus.done) {
-        if (opStatus.error) throw new Error(`Batch process failed: ${JSON.stringify(opStatus.error)}`);
+        if (opStatus.error) {
+          console.error("Batch process failed details:", JSON.stringify(opStatus.error, null, 2));
+          throw new Error(`Batch process failed: ${JSON.stringify(opStatus.error)} (Input: ${inputGcsUri})`);
+        }
         isDone = true;
         console.log("Batch process completed successfully.");
       } else {
@@ -172,56 +216,63 @@ Deno.serve(async (req: Request) => {
     // 3. Retrieve and Parse JSON results from GCS
     const outputPrefix = outputGcsUriPrefix.replace(`gs://${bucketName}/`, "");
     const [files] = await storage.bucket(bucketName).getFiles({ prefix: outputPrefix });
+    console.log(`Found ${files.length} files in output prefix.`);
     
-    const jsonFile = files.find(f => f.name.endsWith(".json"));
-    if (!jsonFile) throw new Error("Result JSON not found in GCS.");
+    const jsonFiles = files.filter(f => f.name.endsWith(".json")).sort((a, b) => a.name.localeCompare(b.name));
+    if (jsonFiles.length === 0) throw new Error("Result JSON not found in GCS.");
 
-    const [content] = await jsonFile.download();
-    const resultDoc = JSON.parse(content.toString());
-    
-    // --- Result Extraction Logic ---
-    let extractedText = resultDoc.text || "";
-    let ocrPages: any[] = [];
+    let fullExtractedText = "";
+    let allOcrPages: any[] = [];
+    let debugInfo = `Files found: ${jsonFiles.map(f => f.name).join(", ")}\n`;
 
-    // Case A: Standard Document AI format (text + pages)
-    if (resultDoc.pages && resultDoc.pages.length > 0) {
-      ocrPages = resultDoc.pages.slice(0, 50).map((page: any) => {
-        const { width, height } = page.dimension || { width: 0, height: 0 };
-        const blocks = page.blocks?.map((block: any) => ({
-            text: extractedText.substring(block.layout?.textAnchor?.textSegments?.[0]?.startIndex || 0, block.layout?.textAnchor?.textSegments?.[0]?.endIndex || 0),
-            quadPoints: convertToQuadPoints(block.layout?.boundingPoly?.normalizedVertices, width, height)
-        })) || [];
-        return { page_number: page.pageNumber, dimensions: { width, height }, blocks };
-      });
-    } 
-    // Case B: Document Layout Parser format (documentLayout.blocks)
-    else if (resultDoc.documentLayout?.blocks) {
-      const blocks = resultDoc.documentLayout.blocks;
-      // Extract full text if empty
-      if (!extractedText) {
-        extractedText = blocks
-          .map((b: any) => b.textBlock?.text || "")
-          .filter((t: string) => t !== "")
-          .join("\n");
+    for (const jsonFile of jsonFiles) {
+      const [content] = await jsonFile.download();
+      const resultDoc = JSON.parse(content.toString());
+      
+      const shardText = resultDoc.text || "";
+      fullExtractedText += shardText;
+      debugInfo += `\nShard ${jsonFile.name}: keys=[${Object.keys(resultDoc).join(", ")}], textLen=${shardText.length}`;
+
+      // --- Result Extraction Logic (Shard Level) ---
+      let shardPages: any[] = [];
+
+      // Case A: Standard Document AI format (text + pages)
+      if (resultDoc.pages && resultDoc.pages.length > 0) {
+        shardPages = resultDoc.pages.map((page: any) => {
+          const { width, height } = page.dimension || { width: 0, height: 0 };
+          const blocks = page.blocks?.map((block: any) => ({
+              text: shardText.substring(block.layout?.textAnchor?.textSegments?.[0]?.startIndex || 0, block.layout?.textAnchor?.textSegments?.[0]?.endIndex || 0),
+              quadPoints: convertToQuadPoints(block.layout?.boundingPoly?.normalizedVertices, width, height)
+          })) || [];
+          return { page_number: page.pageNumber, dimensions: { width, height }, blocks };
+        });
+      } 
+      // Case B: Document Layout Parser format (documentLayout.blocks)
+      else if (resultDoc.documentLayout?.blocks) {
+        const blocks = resultDoc.documentLayout.blocks;
+        // Text is often already in shardText, but if not, extract from blocks
+        if (!shardText && blocks.length > 0) {
+          fullExtractedText += extractTextFromBlocksRecursive(blocks).trim();
+        }
+        
+        shardPages = [{
+          page_number: 1, // Layout Parser might span pages, but for now simplify
+          dimensions: { width: 1000, height: 1000 },
+          blocks: flattenBlocksRecursive(blocks)
+        }];
       }
       
-      // Generate a simplified page structure (Layout Parser results can span multiple pages but blocks are flat)
-      // For now, group into a single virtual page or try to find pageSpan
-      ocrPages = [{
-        page_number: 1,
-        dimensions: { width: 1000, height: 1000 }, // Dummy dimensions as Layout Parser might not provide them at root
-        blocks: blocks.map((b: any) => ({
-          text: b.textBlock?.text || "",
-          quadPoints: [0,0,0,0,0,0,0,0] // Bounding box info in Layout Parser is structured differently
-        }))
-      }];
+      allOcrPages = allOcrPages.concat(shardPages);
     }
+
+    // If still empty text, put debug info into ocr_text
+    const finalOcrText = fullExtractedText || `DEBUG: No text found. ${debugInfo}`;
 
     await supabase
       .from('documents')
       .update({
-        ocr_text: extractedText,
-        ocr_data: { pages: ocrPages },
+        ocr_text: finalOcrText,
+        ocr_data: { pages: allOcrPages.slice(0, 100) }, // Cap at 100 pages for safety
         ocr_status: 'completed'
       })
       .eq('id', recordId);
