@@ -25,7 +25,12 @@ Deno.serve(async (req) => {
     if (!googleJson) throw new Error("GOOGLE_SERVICE_ACCOUNT_JSON is not set");
 
     const bucketName = Deno.env.get("GCS_BUCKET_NAME") || "v0-harvey-docs";
-    const credentials = JSON.parse(googleJson);
+    
+    let rawGcsJson = googleJson;
+    if (rawGcsJson && !rawGcsJson.trim().startsWith('{')) {
+      try { rawGcsJson = atob(rawGcsJson.trim()); } catch (e) {}
+    }
+    const credentials = JSON.parse(rawGcsJson);
     const storage = new Storage({ credentials, projectId: credentials.project_id });
     const bucket = storage.bucket(bucketName);
 
