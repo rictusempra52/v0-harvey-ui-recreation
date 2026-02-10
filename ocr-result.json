@@ -1,0 +1,588 @@
+{
+    "docid": "698f6207-0000-2185-aafe-582429b3dde8",
+    "documentLayout": {
+        "blocks": [
+            {
+                "blockId": "1",
+                "pageSpan": {
+                    "pageEnd": 1,
+                    "pageStart": 1
+                },
+                "textBlock": {
+                    "text": "パークゲート メイツ 西新井",
+                    "type": "paragraph"
+                }
+            },
+            {
+                "blockId": "2",
+                "pageSpan": {
+                    "pageEnd": 1,
+                    "pageStart": 1
+                },
+                "textBlock": {
+                    "text": "管理規約集",
+                    "type": "paragraph"
+                }
+            },
+            {
+                "blockId": "3",
+                "pageSpan": {
+                    "pageEnd": 2,
+                    "pageStart": 1
+                },
+                "textBlock": {
+                    "blocks": [
+                        {
+                            "blockId": "4",
+                            "pageSpan": {
+                                "pageEnd": 2,
+                                "pageStart": 2
+                            },
+                            "textBlock": {
+                                "text": "売主控",
+                                "type": "paragraph"
+                            }
+                        },
+                        {
+                            "blockId": "5",
+                            "pageSpan": {
+                                "pageEnd": 3,
+                                "pageStart": 2
+                            },
+                            "textBlock": {
+                                "blocks": [
+                                    {
+                                        "blockId": "6",
+                                        "pageSpan": {
+                                            "pageEnd": 2,
+                                            "pageStart": 2
+                                        },
+                                        "textBlock": {
+                                            "text": "私は、パークゲート メイツ 西新井(以下「本マンション」という。)の売買契約の締結にあたり、 下記の事項を承認いたします。",
+                                            "type": "paragraph"
+                                        }
+                                    },
+                                    {
+                                        "blockId": "7",
+                                        "pageSpan": {
+                                            "pageEnd": 2,
+                                            "pageStart": 2
+                                        },
+                                        "textBlock": {
+                                            "text": "記",
+                                            "type": "paragraph"
+                                        }
+                                    },
+                                    {
+                                        "blockId": "8",
+                                        "pageSpan": {
+                                            "pageEnd": 2,
+                                            "pageStart": 2
+                                        },
+                                        "textBlock": {
+                                            "text": "1.本管理規約集に記載の管理規約、諸規則、管理委託契約書、初年度予算、管理費等・一時金等、 使用料及び別紙にて配布する長期修繕計画(案)は、売主(「名鉄不動産株式会社」をいう。以下 同じ。)が「原案」として提示したものであること。また、売主の定める最初の引渡日(以下「最 先引渡日」という。)以降は、「原案」のとおり制定されること。",
+                                            "type": "paragraph"
+                                        }
+                                    },
+                                    {
+                                        "blockId": "9",
+                                        "pageSpan": {
+                                            "pageEnd": 2,
+                                            "pageStart": 2
+                                        },
+                                        "textBlock": {
+                                            "text": "2.最先引渡日以降、本承認書は本管理規約第50条に定める合意書面として管理組合に引き継がれ、 本承認書の売主の地位を管理組合が承継すること。",
+                                            "type": "paragraph"
+                                        }
+                                    },
+                                    {
+                                        "blockId": "10",
+                                        "pageSpan": {
+                                            "pageEnd": 2,
+                                            "pageStart": 2
+                                        },
+                                        "textBlock": {
+                                            "text": "3.最先引渡日以降に未引渡住戸がある場合、売主は当該未引渡住戸の区分所有者として本承認書に 同意したものとし、また、当該未引渡住戸の引渡しを受ける者は、本承認書に同意した売主の地 位を承継したものとすること。",
+                                            "type": "paragraph"
+                                        }
+                                    },
+                                    {
+                                        "blockId": "11",
+                                        "pageSpan": {
+                                            "pageEnd": 2,
+                                            "pageStart": 2
+                                        },
+                                        "textBlock": {
+                                            "text": "4.最先引渡日以降、設立総会開催月の末日(本管理委託契約書第20条に定める有効期間満了の日 をいう。)までの間、管理業務を委託したマンション管理業者 (名鉄コミュニティライフ株式会社 をいう。(以下「管理業務受託者」という。))が本管理委託契約書の内容に従い管理を行うこと。",
+                                            "type": "paragraph"
+                                        }
+                                    },
+                                    {
+                                        "blockId": "12",
+                                        "pageSpan": {
+                                            "pageEnd": 2,
+                                            "pageStart": 2
+                                        },
+                                        "textBlock": {
+                                            "text": "5.本管理規約附則第3条の定めにより、最先引渡日以降、最初の理事長が選任されるまでの間、管 理業務受託者がその業務を代行すること。",
+                                            "type": "paragraph"
+                                        }
+                                    },
+                                    {
+                                        "blockId": "13",
+                                        "pageSpan": {
+                                            "pageEnd": 2,
+                                            "pageStart": 2
+                                        },
+                                        "textBlock": {
+                                            "text": "6.最先引渡日以降、最初の理事長が選任されるまでの間、本管理規約第62条の預金口座を管理業 務受託者が代行して開設すること。",
+                                            "type": "paragraph"
+                                        }
+                                    },
+                                    {
+                                        "blockId": "14",
+                                        "pageSpan": {
+                                            "pageEnd": 2,
+                                            "pageStart": 2
+                                        },
+                                        "textBlock": {
+                                            "text": "7.本管理規約附則第4条の定めにより、初年度の役員の選任は、管理業務受託者が推薦または選任 すること。",
+                                            "type": "paragraph"
+                                        }
+                                    },
+                                    {
+                                        "blockId": "15",
+                                        "pageSpan": {
+                                            "pageEnd": 2,
+                                            "pageStart": 2
+                                        },
+                                        "textBlock": {
+                                            "text": "8.本管理規約附則第8条第1項第二号に定める管理準備金は、共用施設の用具・備品、管理用準備 品(椅子、机、書庫等の事務用品、管理組合の表示板等)及び管理事務室の電話加入権等、同条 第5項に定める経費に充当すること。",
+                                            "type": "paragraph"
+                                        }
+                                    },
+                                    {
+                                        "blockId": "16",
+                                        "pageSpan": {
+                                            "pageEnd": 2,
+                                            "pageStart": 2
+                                        },
+                                        "textBlock": {
+                                            "text": "9.本管理規約附則第12条の定めにより、初年度の損害保険契約を管理業務受託者が行うこと。 10.最先引渡日以降に未引渡住戸がある場合、売主及びその指定する者が販売業務(販売用広告看板 等の設置及び販売用事務所の設置)のために本物件の敷地及び共用部分等を無償で使用すること。 11. 管理委託契約に含まない諸設備の保守・点検業務等の業者選定及び契約締結を、管理業務受託者 が行うこと。また、理事長が選任されたときにその地位を承継すること。",
+                                            "type": "paragraph"
+                                        }
+                                    },
+                                    {
+                                        "blockId": "17",
+                                        "pageSpan": {
+                                            "pageEnd": 2,
+                                            "pageStart": 2
+                                        },
+                                        "textBlock": {
+                                            "text": "12.最先引渡日以降に未引渡住戸がある場合、売主は当該未引渡住戸の管理費、修繕積立金及び専用 使用料を負担すること。なお、売主は修繕積立一時金及び管理準備金を負担しないものとし、本 管理規約附則第8条第1項の定めにより最初に専有部分の保存登記を行う区分所有者が負担する ものとする。",
+                                            "type": "paragraph"
+                                        }
+                                    },
+                                    {
+                                        "blockId": "18",
+                                        "pageSpan": {
+                                            "pageEnd": 2,
+                                            "pageStart": 2
+                                        },
+                                        "textBlock": {
+                                            "text": "13.最先引渡日以降に未引渡住戸がある場合、売主は、駐車場等使用料の管理費充当分に不足額が生 じた場合は、初年度会計期間に限り負担するものとする。",
+                                            "type": "paragraph"
+                                        }
+                                    },
+                                    {
+                                        "blockId": "19",
+                                        "pageSpan": {
+                                            "pageEnd": 2,
+                                            "pageStart": 2
+                                        },
+                                        "textBlock": {
+                                            "text": "14.本承認書は、本管理委託契約書の「機械警備業務における契約概要を記載した書面」に基づく管 理委託契約締結等により依頼者に交付される書面の受領書となること。",
+                                            "type": "paragraph"
+                                        }
+                                    },
+                                    {
+                                        "blockId": "20",
+                                        "pageSpan": {
+                                            "pageEnd": 2,
+                                            "pageStart": 2
+                                        },
+                                        "textBlock": {
+                                            "text": "年月 日",
+                                            "type": "paragraph"
+                                        }
+                                    },
+                                    {
+                                        "blockId": "21",
+                                        "pageSpan": {
+                                            "pageEnd": 2,
+                                            "pageStart": 2
+                                        },
+                                        "textBlock": {
+                                            "text": "(売主)名鉄不動産株式会社殿",
+                                            "type": "paragraph"
+                                        }
+                                    },
+                                    {
+                                        "blockId": "22",
+                                        "pageSpan": {
+                                            "pageEnd": 2,
+                                            "pageStart": 2
+                                        },
+                                        "textBlock": {
+                                            "text": "(区分所有者)パークゲート メイツ 西新井",
+                                            "type": "paragraph"
+                                        }
+                                    },
+                                    {
+                                        "blockId": "23",
+                                        "pageSpan": {
+                                            "pageEnd": 2,
+                                            "pageStart": 2
+                                        },
+                                        "textBlock": {
+                                            "text": "号室",
+                                            "type": "paragraph"
+                                        }
+                                    },
+                                    {
+                                        "blockId": "24",
+                                        "pageSpan": {
+                                            "pageEnd": 2,
+                                            "pageStart": 2
+                                        },
+                                        "textBlock": {
+                                            "text": "氏名",
+                                            "type": "paragraph"
+                                        }
+                                    },
+                                    {
+                                        "blockId": "25",
+                                        "pageSpan": {
+                                            "pageEnd": 2,
+                                            "pageStart": 2
+                                        },
+                                        "textBlock": {
+                                            "text": "氏名",
+                                            "type": "paragraph"
+                                        }
+                                    },
+                                    {
+                                        "blockId": "26",
+                                        "pageSpan": {
+                                            "pageEnd": 2,
+                                            "pageStart": 2
+                                        },
+                                        "textBlock": {
+                                            "text": "印",
+                                            "type": "paragraph"
+                                        }
+                                    },
+                                    {
+                                        "blockId": "27",
+                                        "pageSpan": {
+                                            "pageEnd": 2,
+                                            "pageStart": 2
+                                        },
+                                        "textBlock": {
+                                            "text": "印",
+                                            "type": "paragraph"
+                                        }
+                                    },
+                                    {
+                                        "blockId": "28",
+                                        "pageSpan": {
+                                            "pageEnd": 3,
+                                            "pageStart": 3
+                                        },
+                                        "textBlock": {
+                                            "text": "区分所有者控",
+                                            "type": "paragraph"
+                                        }
+                                    }
+                                ],
+                                "text": "管理にかかわる承認書",
+                                "type": "heading-2"
+                            }
+                        },
+                        {
+                            "blockId": "29",
+                            "pageSpan": {
+                                "pageEnd": 3,
+                                "pageStart": 3
+                            },
+                            "textBlock": {
+                                "blocks": [
+                                    {
+                                        "blockId": "30",
+                                        "pageSpan": {
+                                            "pageEnd": 3,
+                                            "pageStart": 3
+                                        },
+                                        "textBlock": {
+                                            "text": "私は、パークゲート メイツ 西新井(以下「本マンション」という。)の売買契約の締結にあたり、 下記の事項を承認いたします。",
+                                            "type": "paragraph"
+                                        }
+                                    },
+                                    {
+                                        "blockId": "31",
+                                        "pageSpan": {
+                                            "pageEnd": 3,
+                                            "pageStart": 3
+                                        },
+                                        "textBlock": {
+                                            "text": "記",
+                                            "type": "paragraph"
+                                        }
+                                    },
+                                    {
+                                        "blockId": "32",
+                                        "pageSpan": {
+                                            "pageEnd": 3,
+                                            "pageStart": 3
+                                        },
+                                        "textBlock": {
+                                            "text": "1.本管理規約集に記載の管理規約、諸規則、管理委託契約書、初年度予算、管理費等・一時金等、 使用料及び別紙にて配布する長期修繕計画(案)は、売主(「名鉄不動産株式会社」をいう。以下 同じ。)が「原案」として提示したものであること。また、売主の定める最初の引渡日(以下「最 先引渡日」という。)以降は、「原案」のとおり制定されること。",
+                                            "type": "paragraph"
+                                        }
+                                    },
+                                    {
+                                        "blockId": "33",
+                                        "pageSpan": {
+                                            "pageEnd": 3,
+                                            "pageStart": 3
+                                        },
+                                        "textBlock": {
+                                            "text": "2.最先引渡日以降、本承認書は本管理規約第50条に定める合意書面として管理組合に引き継がれ、 本承認書の売主の地位を管理組合が承継すること。",
+                                            "type": "paragraph"
+                                        }
+                                    },
+                                    {
+                                        "blockId": "34",
+                                        "pageSpan": {
+                                            "pageEnd": 3,
+                                            "pageStart": 3
+                                        },
+                                        "textBlock": {
+                                            "text": "3.最先引渡日以降に未引渡住戸がある場合、売主は当該未引渡住戸の区分所有者として本承認書に 同意したものとし、また、当該未引渡住戸の引渡しを受ける者は、本承認書に同意した売主の地 位を承継したものとすること。",
+                                            "type": "paragraph"
+                                        }
+                                    },
+                                    {
+                                        "blockId": "35",
+                                        "pageSpan": {
+                                            "pageEnd": 3,
+                                            "pageStart": 3
+                                        },
+                                        "textBlock": {
+                                            "text": "4.最先引渡日以降、設立総会開催月の末日(本管理委託契約書第20条に定める有効期間満了の日 をいう。)までの間、管理業務を委託したマンション管理業者(名鉄コミュニティライフ株式会社 をいう。(以下「管理業務受託者」という。))が本管理委託契約書の内容に従い管理を行うこと。",
+                                            "type": "paragraph"
+                                        }
+                                    },
+                                    {
+                                        "blockId": "36",
+                                        "pageSpan": {
+                                            "pageEnd": 3,
+                                            "pageStart": 3
+                                        },
+                                        "textBlock": {
+                                            "text": "5.本管理規約附則第3条の定めにより、最先引渡日以降、最初の理事長が選任されるまでの間、管 理業務受託者がその業務を代行すること。",
+                                            "type": "paragraph"
+                                        }
+                                    },
+                                    {
+                                        "blockId": "37",
+                                        "pageSpan": {
+                                            "pageEnd": 3,
+                                            "pageStart": 3
+                                        },
+                                        "textBlock": {
+                                            "text": "6.最先引渡日以降、最初の理事長が選任されるまでの間、本管理規約第62条の預金口座を管理業 務受託者が代行して開設すること。",
+                                            "type": "paragraph"
+                                        }
+                                    },
+                                    {
+                                        "blockId": "38",
+                                        "pageSpan": {
+                                            "pageEnd": 3,
+                                            "pageStart": 3
+                                        },
+                                        "textBlock": {
+                                            "text": "7.本管理規約附則第4条の定めにより、初年度の役員の選任は、管理業務受託者が推薦または選任 すること。",
+                                            "type": "paragraph"
+                                        }
+                                    },
+                                    {
+                                        "blockId": "39",
+                                        "pageSpan": {
+                                            "pageEnd": 3,
+                                            "pageStart": 3
+                                        },
+                                        "textBlock": {
+                                            "text": "8.本管理規約附則第8条第1項第二号に定める管理準備金は、共用施設の用具・備品、管理用準備 品(椅子、机、書庫等の事務用品、管理組合の表示板等)及び管理事務室の電話加入権等、同条 第5項に定める経費に充当すること。",
+                                            "type": "paragraph"
+                                        }
+                                    },
+                                    {
+                                        "blockId": "40",
+                                        "pageSpan": {
+                                            "pageEnd": 3,
+                                            "pageStart": 3
+                                        },
+                                        "textBlock": {
+                                            "text": "9.本管理規約附則第12条の定めにより、初年度の損害保険契約を管理業務受託者が行うこと。 10.最先引渡日以降に未引渡住戸がある場合、売主及びその指定する者が販売業務(販売用広告看板",
+                                            "type": "paragraph"
+                                        }
+                                    },
+                                    {
+                                        "blockId": "41",
+                                        "pageSpan": {
+                                            "pageEnd": 3,
+                                            "pageStart": 3
+                                        },
+                                        "textBlock": {
+                                            "text": "等の設置及び販売用事務所の設置)のために本物件の敷地及び共用部分等を無償で使用すること。 11.管理委託契約に含まない諸設備の保守・点検業務等の業者選定及び契約締結を、管理業務受託者 が行うこと。また、理事長が選任されたときにその地位を承継すること。",
+                                            "type": "paragraph"
+                                        }
+                                    },
+                                    {
+                                        "blockId": "42",
+                                        "pageSpan": {
+                                            "pageEnd": 3,
+                                            "pageStart": 3
+                                        },
+                                        "textBlock": {
+                                            "text": "12.最先引渡日以降に未引渡住戸がある場合、売主は当該未引渡住戸の管理費、修繕積立金及び専用 使用料を負担すること。なお、売主は修繕積立一時金及び管理準備金を負担しないものとし、本 管理規約附則第8条第1項の定めにより最初に専有部分の保存登記を行う区分所有者が負担する ものとする。",
+                                            "type": "paragraph"
+                                        }
+                                    },
+                                    {
+                                        "blockId": "43",
+                                        "pageSpan": {
+                                            "pageEnd": 3,
+                                            "pageStart": 3
+                                        },
+                                        "textBlock": {
+                                            "text": "13.最先引渡日以降に未引渡住戸がある場合、売主は、駐車場等使用料の管理費充当分に不足額が生 じた場合は、初年度会計期間に限り負担するものとする。",
+                                            "type": "paragraph"
+                                        }
+                                    },
+                                    {
+                                        "blockId": "44",
+                                        "pageSpan": {
+                                            "pageEnd": 3,
+                                            "pageStart": 3
+                                        },
+                                        "textBlock": {
+                                            "text": "14.本承認書は、本管理委託契約書の「機械警備業務における契約概要を記載した書面」に基づく管 理委託契約締結等により依頼者に交付される書面の受領書となること。",
+                                            "type": "paragraph"
+                                        }
+                                    },
+                                    {
+                                        "blockId": "45",
+                                        "pageSpan": {
+                                            "pageEnd": 3,
+                                            "pageStart": 3
+                                        },
+                                        "textBlock": {
+                                            "text": "年月 日",
+                                            "type": "paragraph"
+                                        }
+                                    },
+                                    {
+                                        "blockId": "46",
+                                        "pageSpan": {
+                                            "pageEnd": 3,
+                                            "pageStart": 3
+                                        },
+                                        "textBlock": {
+                                            "text": "(売主)名鉄不動産株式会社 殿",
+                                            "type": "paragraph"
+                                        }
+                                    },
+                                    {
+                                        "blockId": "47",
+                                        "pageSpan": {
+                                            "pageEnd": 3,
+                                            "pageStart": 3
+                                        },
+                                        "textBlock": {
+                                            "text": "(区分所有者) パークゲート メイツ 西新井",
+                                            "type": "paragraph"
+                                        }
+                                    },
+                                    {
+                                        "blockId": "48",
+                                        "pageSpan": {
+                                            "pageEnd": 3,
+                                            "pageStart": 3
+                                        },
+                                        "textBlock": {
+                                            "text": "号室",
+                                            "type": "paragraph"
+                                        }
+                                    },
+                                    {
+                                        "blockId": "49",
+                                        "pageSpan": {
+                                            "pageEnd": 3,
+                                            "pageStart": 3
+                                        },
+                                        "textBlock": {
+                                            "text": "氏名",
+                                            "type": "paragraph"
+                                        }
+                                    },
+                                    {
+                                        "blockId": "50",
+                                        "pageSpan": {
+                                            "pageEnd": 3,
+                                            "pageStart": 3
+                                        },
+                                        "textBlock": {
+                                            "text": "氏名",
+                                            "type": "paragraph"
+                                        }
+                                    },
+                                    {
+                                        "blockId": "51",
+                                        "pageSpan": {
+                                            "pageEnd": 3,
+                                            "pageStart": 3
+                                        },
+                                        "textBlock": {
+                                            "text": "印",
+                                            "type": "paragraph"
+                                        }
+                                    },
+                                    {
+                                        "blockId": "52",
+                                        "pageSpan": {
+                                            "pageEnd": 3,
+                                            "pageStart": 3
+                                        },
+                                        "textBlock": {
+                                            "text": "印",
+                                            "type": "paragraph"
+                                        }
+                                    }
+                                ],
+                                "text": "管理にかかわる承認書",
+                                "type": "heading-2"
+                            }
+                        }
+                    ],
+                    "text": "パークゲート メイツ 西新井管理組合",
+                    "type": "heading-1"
+                }
+            }
+        ]
+    },
+    "shardInfo": {
+        "shardCount": "1"
+    }
+}

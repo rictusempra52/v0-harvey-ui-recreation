@@ -224,41 +224,62 @@ export function useChat() {
           prev.map(m => m.id === "temp-ai-id" ? { ...m, content: aiContent } : m)
         )
 
-        // AIの応答からソース情報を抽出するパース処理（さらに強化）
+        // AIの応答からソース情報を抽出するパース処理（全文検索に強化）
         const extractedSources: MessageSource[] = []
         
-        // 1. まず「参考資料:」セクションを探す
-        let sourceText = ""
-        const sourceMatch = aiContent.match(/参考資料[:：]\s*([\s\S]*)$/)
-        if (sourceMatch && sourceMatch[1]) {
-          sourceText = sourceMatch[1]
-        } else {
-          // 2. 見出しがない場合、メッセージ全体の末尾にあるリスト形式を探す
-          sourceText = aiContent
-        }
-
-        const lines = sourceText.split("\n")
-        lines.forEach(line => {
-          // 例: * [文書名] (ID: uuid)
-          const docMatch = line.match(/[*・-]\s*(?:\[(.*?)\]|(.*?))(?:\s*\((.*?)\))?$/)
-          if (docMatch) {
-            const extra = docMatch[3] || ""
-            const idMatch = extra.match(/ID:\s*([a-f\d-]+)/i)
-            
-            if (idMatch) {
-              const title = (docMatch[1] || docMatch[2] || "").trim()
-              // タイトルからID部分を削除（もし混入していれば）
-              const cleanTitle = title.replace(/\s*\(ID:.*?\)\s*/, "").trim()
-              
-              if (cleanTitle && !cleanTitle.includes("参考資料")) {
-                extractedSources.push({
-                  title: cleanTitle,
-                  fileId: idMatch[1],
-                })
-              }
-            }
+        // 以下のパターンを全文から検索する
+        // 1. [SourceID: uuid, Page: 5, Block: 10]
+        // 2. (SourceID: uuid, Page: 5, Block: 10)
+        // 3. ID: uuid
+        const sourcePatterns = /\[?SourceID:\s*([a-f\d-]+)(?:,\s*Page:\s*(\d+))?(?:,\s*Block:\s*(\d+))?\]?/gi
+        const matches = Array.from(aiContent.matchAll(sourcePatterns))
+        
+        matches.forEach(match => {
+          const fileId = match[1]
+          const page = match[2]
+          const blockId = match[3]
+          
+          // 重複チェック
+          if (!extractedSources.some(s => s.fileId === fileId && s.page === page && s.blockId === blockId)) {
+            extractedSources.push({
+              title: "参照資料", // タイトルは後で補完されるか、汎用名を使用
+              fileId,
+              page,
+              blockId
+            })
           }
         })
+
+        // 従来の「参考資料:」セクションがある場合の補完処理 (タイトル取得のため)
+        const sourceMatch = aiContent.match(/(?:^|\n)(?:#+\s*)?参考資料[:：]?\s*([\s\S]*)$/)
+        if (sourceMatch && sourceMatch[1]) {
+          const lines = sourceMatch[1].split("\n")
+          lines.forEach(line => {
+            const trimmedLine = line.trim()
+            if (!trimmedLine) return
+            const docMatch = trimmedLine.match(/^[*・-]\s*(?:\[(.*?)\]|(.*?))(?:\s*\((.*?)\))/)
+            if (docMatch) {
+              const title = (docMatch[1] || docMatch[2] || "").trim()
+              const extra = docMatch[3] || ""
+              const idMatch = extra.match(/(?:Source)?ID:\s*([a-f\d-]+)/i)
+              if (idMatch) {
+                // すでに抽出済みのソースがあればタイトルを更新
+                const existing = extractedSources.find(s => s.fileId === idMatch[1])
+                if (existing) {
+                  existing.title = title
+                } else {
+                  extractedSources.push({
+                    title,
+                    fileId: idMatch[1],
+                    page: (extra.match(/Page:\s*(\d+)/i) || [])[1],
+                    blockId: (extra.match(/Block:\s*(\d+)/i) || [])[1],
+                  })
+                }
+              }
+            }
+          })
+        }
+        console.log("Extracted sources strategy final:", extractedSources)
 
         // AIの応答をDBに保存
         const { data: savedAiMsg, error: saveError } = await supabase
