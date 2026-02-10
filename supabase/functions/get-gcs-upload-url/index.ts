@@ -28,7 +28,7 @@ Deno.serve(async (req) => {
       throw new Error("GOOGLE_SERVICE_ACCOUNT_JSON is not set");
     }
 
-    const bucketName = Deno.env.get("GCS_BUCKET_NAME") || "v0-harvey-docs";
+    const bucketName = Deno.env.get("GCS_BUCKET_NAME") || "shimesukun-harvey";
     
     let rawGcsJson = googleJson;
     if (rawGcsJson && !rawGcsJson.trim().startsWith('{')) {
