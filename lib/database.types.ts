@@ -44,6 +44,7 @@ export type MessageSource = {
   content?: string
   annotations?: AnnotationData[]
   fileId?: string
+  blockId?: string
 }
 
 export type AnnotationData = {
