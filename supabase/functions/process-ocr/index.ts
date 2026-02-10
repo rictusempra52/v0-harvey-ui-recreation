@@ -293,6 +293,6 @@ Deno.serve(async (req: Request) => {
         }).eq('id', recordId);
       } catch (dbErr) { console.error(dbErr); }
     }
-    return new Response(message, { status: 500 });
+    return new Response("Internal Server Error", { status: 500 });
   }
 });
