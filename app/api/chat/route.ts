@@ -96,7 +96,7 @@ ${context || '提供された文書はありません。'}
 
     console.log(`[${now}] Starting streamObject with native JSON mode...`);
     const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
-    console.log(`[${now}] API Key present: ${!!apiKey}, length: ${apiKey?.length || 0}`);
+    console.log(`[${now}] Verifying Google Generative AI configuration...`);
 
     // Gemini は空の content を嫌うためフィルタリング
     const validMessages = messages.filter((m: any) => m.content && m.content.trim() !== "");
