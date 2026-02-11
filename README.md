@@ -1,30 +1,45 @@
-# Harvey UI recreation
+# シメスくん - マンション管理AIアシスタント
 
-*Automatically synced with your [v0.app](https://v0.app) deployments*
+高齢者でも直感的に使えるインターフェースを備えた、マンション管理支援ツールです。マンション管理規約や議事録をAIが解析し、住民の質問に対して迅速かつ正確な回答を提供します。
 
-[![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?style=for-the-badge&logo=vercel)](https://vercel.com/rictusempra52s-projects/v0-harvey-ui-recreation)
-[![Built with v0](https://img.shields.io/badge/Built%20with-v0.app-black?style=for-the-badge)](https://v0.app/chat/bPRLXp10STR)
+## 主な機能
 
-## Overview
+- **ドキュメント管理**: 管理規約や議事録（PDF）をアップロード・管理。
+- **AIチャット**: 規約に基づいた質疑応答。
+- **引用元表示**: 回答の根拠となるPDFの該当箇所を自動でハイライト表示。
+- **高齢者向けUI**: PC・スマホ操作が苦手な方でも迷わない、見やすく大きなボタン・フォント・高コントラスト設計。
 
-This repository will stay in sync with your deployed chats on [v0.app](https://v0.app).
-Any changes you make to your deployed app will be automatically pushed to this repository from [v0.app](https://v0.app).
+## 技術スタック
 
-## Deployment
+- **Frontend**: Next.js, TypeScript, Tailwind CSS, Radix UI (shadcn/ui)
+- **Backend**: Supabase (Database, Storage, Edge Functions)
+- **OCR**: Google Cloud Vision API
+- **RAG**: OpenAI API / Supabase Vector (pgvector)
 
-Your project is live at:
+## セットアップ
 
-**[https://vercel.com/rictusempra52s-projects/v0-harvey-ui-recreation](https://vercel.com/rictusempra52s-projects/v0-harvey-ui-recreation)**
+### 環境変数の設定
 
-## Build your app
+`.env.local` ファイルを作成し、以下の項目を設定してください：
 
-Continue building your app on:
+```env
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+# その他の必要な環境変数
+```
 
-**[https://v0.app/chat/bPRLXp10STR](https://v0.app/chat/bPRLXp10STR)**
+### 開発サーバーの起動
 
-## How It Works
+```bash
+npm install
+npm run dev
+```
 
-1. Create and modify your project using [v0.app](https://v0.app)
-2. Deploy your chats from the v0 interface
-3. Changes are automatically pushed to this repository
-4. Vercel deploys the latest version from this repository
+## プロジェクト構造
+
+- `app/`: Next.js App Router ページコンポーネント
+- `components/`: UIコンポーネント（高齢者向けデザイン重視）
+- `hooks/`: カスタムフック（Chat、Uploadなど）
+- `lib/`: 共通ライブラリ・型定義
+- `supabase/`: データベーススキーマやEdge Functions
+- `.agent/`: AIアシスタント用のルール設定およびワークフロー

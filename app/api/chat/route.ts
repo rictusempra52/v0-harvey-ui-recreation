@@ -1,5 +1,5 @@
 import { google } from '@ai-sdk/google';
-import { streamObject, streamText } from 'ai';
+import { streamText, Output } from 'ai';
 import { createServerSupabaseClient } from '@/lib/supabase-server';
 import { z } from 'zod';
 
@@ -94,45 +94,76 @@ ${context || '提供された文書はありません。'}
     console.log(`[${now}] Full System Prompt (first 200 chars):`, fullSystemPrompt.substring(0, 200));
     console.log(`[${now}] Messages (last one):`, messages[messages.length - 1]);
 
-    console.log(`[${now}] Starting streamObject process...`);
-    if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
-      console.error(`[${now}] MISSING API KEY: GOOGLE_GENERATIVE_AI_API_KEY`);
-    }
+    console.log(`[${now}] Starting streamText with structured output...`);
+    const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+    console.log(`[${now}] API Key present: ${!!apiKey}, length: ${apiKey?.length || 0}`);
 
     try {
-      const result = streamObject({
-        model: google('gemini-1.5-flash'),
+      const result = streamText({
+        model: google('gemini-2.0-flash'),
         system: fullSystemPrompt,
         messages,
-        schema: chatResponseSchema,
-        onFinish({ usage }) {
-          console.log(`[${new Date().toLocaleTimeString()}] Stream Finished.`, usage);
+        output: Output.object({
+          schema: chatResponseSchema
+        }),
+        onFinish({ usage, finishReason }) {
+          console.log(`[${new Date().toLocaleTimeString()}] Stream Finished. Reason: ${finishReason}`, usage);
         },
         onError(error) {
           console.error(`[${new Date().toLocaleTimeString()}] Stream Error:`, error);
         }
       });
 
-      console.log(`[${now}] streamObject initiated. Returning fullStream response.`);
-      return new Response(result.fullStream, {
+      // Data Stream Protocol (v1) を手動で実装して送信する
+      const encoder = new TextEncoder();
+      const stream = new ReadableStream({
+        async start(controller) {
+          try {
+            // fullStream を iteration してチャンクを処理
+            for await (const part of result.fullStream) {
+              let textToStream: string | undefined;
+
+              if (part.type === 'text-delta') {
+                // Gemini + Output.object の場合、生 JSON 文字列の一部が text-delta として来る
+                textToStream = part.textDelta;
+              }
+
+              if (textToStream) {
+                // 0: prefix を付けて改行で区切る
+                const chunk = `0:${JSON.stringify(textToStream)}\n`;
+                controller.enqueue(encoder.encode(chunk));
+              }
+            }
+            // 終了メタデータを送信
+            controller.enqueue(encoder.encode(`d:{"finishReason":"stop"}\n`));
+            controller.close();
+          } catch (error) {
+            console.error('Stream processing error:', error);
+            controller.enqueue(encoder.encode(`e:${JSON.stringify(error)}\n`));
+            controller.close();
+          }
+        }
+      });
+
+      console.log(`[${now}] Custom Data Stream initiated. Returning Response.`);
+      return new Response(stream, {
         headers: {
           'Content-Type': 'text/plain; charset=utf-8',
-          'X-Chat-API-Status': 'success-fullstream',
+          'X-Chat-API-Status': 'success-manual-proto',
           'Cache-Control': 'no-cache',
           'Connection': 'keep-alive',
         },
       });
-    } catch (streamInitError: any) {
-      console.error(`[${now}] Failed to initialize streamObject:`, streamInitError);
-      throw streamInitError; // 外部の catch ブロックで処理
+    } catch (streamError: any) {
+      console.error(`[${now}] Failed to initialize streamText:`, streamError);
+      throw streamError;
     }
   } catch (error: any) {
     const errTime = new Date().toLocaleTimeString();
     console.error(`[${errTime}] --- Chat API Fatal Error ---`, error);
     return new Response(JSON.stringify({ 
       error: error.message || 'Internal Server Error',
-      stack: error.stack,
-      hint: 'Check if Google AI SDK and API key are valid.'
+      hint: 'Check Google AI SDK, API key, and model availability.'
     }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
