@@ -1,42 +1,50 @@
 import { google } from '@ai-sdk/google';
-import { streamText } from 'ai';
+import { streamObject, streamText } from 'ai';
 import { createServerSupabaseClient } from '@/lib/supabase-server';
+import { z } from 'zod';
+
+// ... (以下、SYSTEM_PROMPT, chatResponseSchema, maxDuration はそのまま)
 
 // モデルの動作を定義するシステムプロンプト
-const SYSTEM_PROMPT = `あなたは、高齢者やPC・スマホ操作が苦手なユーザーをサポートする、親切で丁寧なAIアシスタント「シメスくん」です。
-提供された「マンションの文書データ（コンテキスト）」に基づいて、ユーザーの質問に詳しく、かつ分かりやすく回答してください。
+const SYSTEM_PROMPT = `あなたは、高齢者やPC・スマホ操作が苦手なユーザーをサポートする、親切で寄り添うAIアシスタント「シメスくん」です。
+提供された「マンションの文書データ（コンテキスト）」の内容を読み解き、ユーザーの質問に対して、具体的に情報を補足しながら、指定された形式で回答を作成してください。
 
-# 厳格に従うべきガイドライン
-- **詳細かつ丁寧な解説**: 結論を簡潔に述べた後、その背景や詳細な内容を提供された資料に基づいて網羅的に説明してください。
-- **分かりやすい構造化**: 箇条書きや段落を適切に使い、視覚的に理解しやすい形式で回答してください。
-- **平易な言葉使い**: 法律用語や専門用語は避け、誰にでもわかる言葉に噛み砕いて説明してください。
-- **安心感のあるトーン**: ユーザーの不安に寄り添い、丁寧で穏やかな口調を心がけてください。
-- **資料の引用**: 根拠となる資料がある場合は、提供されたSourceID等を使用して正確に引用してください。資料にない情報は「記載がありません」と伝え、推測は避けてください。
+# 守るべき基本姿勢
+- **予告で終わらせない**: 「〜について説明します」と言って終わるのではなく、具体的な内容（中身）まで全て書き切ってください。
 
-# Markdown表示に関する、必ず守らなければならない最重要事項
-- 見出し（###）や水平線（---）、リスト（*）の前後には必ず「空行」を入れてください。
-- 強調したい単語は必ず二重のアスタリスク（例：**重要**）で囲んでください。
-- 改行が必要な場合は、空行（二重改行）を適切に使用してください。
+# 回答のルール
+- 回答本文 (\`answer\`) には、専門用語を避けた平易で温かい言葉（中学生でもわかる表現）を使用してください。
+- 根拠となる資料がある場合は、引用元として提供された SourceID, Page, Block の情報を \`sources\` 配列に含めてください。
+- 読みやすさを考慮し、適宜改行や太字を使用して構成してください。
 `;
+
+// レスポンスの構造定義
+const chatResponseSchema = z.object({
+  answer: z.string().describe('高齢者向けの親切で詳細な回答本文（Markdown形式）'),
+  sources: z.array(z.object({
+    fileId: z.string().describe('文書のUUID'),
+    page: z.string().optional().describe('ページ番号'),
+    blockId: z.string().optional().describe('ブロック番号'),
+    citation: z.string().optional().describe('引用した箇所の短い抜粋（任意）'),
+    title: z.string().optional().describe('文書のタイトル（任意）')
+  })).describe('回答の根拠となった資料のリスト')
+});
 
 export const maxDuration = 30;
 
 export async function POST(req: Request) {
+  const now = new Date().toLocaleTimeString();
+  console.log(`[${now}] --- Chat API Request Received (Structural) ---`);
+  
   try {
-    const now = new Date().toLocaleTimeString();
-    console.log(`[${now}] --- Chat API Request Received ---`);
-    
     const { messages, sessionId } = await req.json();
-    console.log(`[${now}] Messages count:`, messages.length, "Session ID:", sessionId);
+    console.log(`[${now}] Messages count:`, messages?.length, "Session ID:", sessionId);
 
     let context = "";
     let apartmentName = "";
 
-    // sessionIdがある場合、マンションに関連する文書を取得
     if (sessionId) {
       const supabase = await createServerSupabaseClient();
-      
-      // 1. セッションからマンションIDを取得
       const { data: session } = await supabase
         .from('chat_sessions')
         .select('apartment_id, apartments(name)')
@@ -47,7 +55,6 @@ export async function POST(req: Request) {
         // @ts-ignore
         apartmentName = session.apartments?.name || "";
         
-        // 2. マンションに関連する文書を取得 (新カラム ocr_search_index を使用)
         const { data: docs } = await supabase
           .from('documents')
           .select('id, file_name, ocr_search_index')
@@ -57,14 +64,13 @@ export async function POST(req: Request) {
         if (docs && docs.length > 0) {
           context = docs.map(d => {
             const index = (d.ocr_search_index as any[]) || [];
-            // AIが引用しやすいよう、各ブロックの先頭にIDとタイトル、ページ情報を埋め込む
             const structuredText = index.map((item, i) => 
               `[SourceID: ${d.id}, Page: ${item.page_number}, Block: ${i}]: ${item.text}`
             ).join('\n');
             
-            return `--- Document Title: ${d.file_name} ---\n${structuredText}`;
+            return `==== Document: ${d.file_name} (ID: ${d.id}) ====\n${structuredText}\n====================`;
           }).join('\n\n');
-          console.log(`[${now}] Integrated context loaded from ${docs.length} documents`);
+          console.log(`[${now}] Context loaded: ${docs.length} documents`);
         }
       }
     }
@@ -85,34 +91,49 @@ ${context || '提供された文書はありません。'}
 * [文書のタイトル] (SourceID: 実際のID, Page: ページ番号, Block: ブロックID)
 `;
 
-    const result = streamText({
-      model: google('gemini-2.0-flash-lite'),
-      system: fullSystemPrompt,
-      messages,
-      onFinish({ usage }) {
-        console.log(`[${now}] --- Stream Finished ---`);
-        console.log(`[${now}] Usage:`, usage);
-      },
-    });
+    console.log(`[${now}] Full System Prompt (first 200 chars):`, fullSystemPrompt.substring(0, 200));
+    console.log(`[${now}] Messages (last one):`, messages[messages.length - 1]);
 
-    console.log(`[${now}] Stream initiated successfully`);
-    return result.toTextStreamResponse({
-      headers: {
-        'X-Chat-API-Status': 'success',
-      },
-    });
-  } catch (error) {
-    const now = new Date().toLocaleTimeString();
-    console.error(`[${now}] --- Chat API Error ---`);
-    console.error(error);
+    console.log(`[${now}] Starting streamObject process...`);
+    if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
+      console.error(`[${now}] MISSING API KEY: GOOGLE_GENERATIVE_AI_API_KEY`);
+    }
 
-    // Do not expose internal error details or stack traces to the client.
-    // Return a generic error response while logging full details on the server.
-    const errorBody = {
-      message: 'Internal server error',
-    };
+    try {
+      const result = streamObject({
+        model: google('gemini-1.5-flash'),
+        system: fullSystemPrompt,
+        messages,
+        schema: chatResponseSchema,
+        onFinish({ usage }) {
+          console.log(`[${new Date().toLocaleTimeString()}] Stream Finished.`, usage);
+        },
+        onError(error) {
+          console.error(`[${new Date().toLocaleTimeString()}] Stream Error:`, error);
+        }
+      });
 
-    return new Response(JSON.stringify({ error: errorBody }), {
+      console.log(`[${now}] streamObject initiated. Returning fullStream response.`);
+      return new Response(result.fullStream, {
+        headers: {
+          'Content-Type': 'text/plain; charset=utf-8',
+          'X-Chat-API-Status': 'success-fullstream',
+          'Cache-Control': 'no-cache',
+          'Connection': 'keep-alive',
+        },
+      });
+    } catch (streamInitError: any) {
+      console.error(`[${now}] Failed to initialize streamObject:`, streamInitError);
+      throw streamInitError; // 外部の catch ブロックで処理
+    }
+  } catch (error: any) {
+    const errTime = new Date().toLocaleTimeString();
+    console.error(`[${errTime}] --- Chat API Fatal Error ---`, error);
+    return new Response(JSON.stringify({ 
+      error: error.message || 'Internal Server Error',
+      stack: error.stack,
+      hint: 'Check if Google AI SDK and API key are valid.'
+    }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
     });
