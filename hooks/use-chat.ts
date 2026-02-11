@@ -168,44 +168,53 @@ export function useChat() {
           for (const line of lines) {
             const trimmedLine = line.trim()
             if (!trimmedLine) continue
+            
+            console.log("--- Raw Line from Server ---", trimmedLine);
 
             if (trimmedLine.startsWith('0:')) {
-              // 0: はテキスト（JSON文字列の断片）
+              // 0: はテキストまたはオブジェクトの断片
               const content = trimmedLine.substring(2)
               try {
-                // AI SDK は JSON 文字列としてシリアライズして送ってくるためパースが必要
+                // AI SDK から JSON 文字列としてシリアライズされてくるためパース
                 const text = JSON.parse(content)
                 aiContent += text
               } catch (e) {
-                // パースに失敗した場合はそのまま追加（フォールバック）
                 aiContent += content
               }
             } else if (trimmedLine.startsWith('e:')) {
               console.error("Stream Error Event:", trimmedLine)
-            } else if (trimmedLine.startsWith('d:')) {
-              console.log("Stream Finish Event (Metadata):", trimmedLine)
             }
           }
 
-            // UI経過を反映
-            setMessages(prev => 
-              prev.map(m => {
-                if (m.id !== "temp-ai-id") return m;
-                
-                let displayContent = aiContent;
-                const answerMatch = aiContent.match(/"answer"\s*:\s*"((?:[^"\\]|\\.)*)/);
-                if (answerMatch) {
-                  displayContent = answerMatch[1]
-                    .replace(/\\n/g, '\n')
-                    .replace(/\\"/g, '"')
-                    .replace(/\\r/g, '\r')
-                    .replace(/\\t/g, '\t');
+          // UIに即時反映
+          // streamObject の場合、aiContent は JSON の一部を構成する文字列
+          // (例: {"answer": "こん...)
+          setMessages(prev => 
+            prev.map(m => {
+              if (m.id !== "temp-ai-id") return m;
+              
+              let displayContent = aiContent;
+              
+              // 蓄積された JSON 文字列から "answer" の中身を正規表現で抽出
+              // まだ JSON として不完全でも、ここから回答テキストのみをリアルタイムで抜く
+              const answerMatch = aiContent.match(/"answer"\s*:\s*"((?:[^"\\]|\\.)*)/);
+              if (answerMatch) {
+                try {
+                  // エスケープを解除して表示
+                  displayContent = JSON.parse(`"${answerMatch[1]}"`);
+                } catch (e) {
+                  // 不完全なエスケープシーケンスがある場合はそのまま
+                  displayContent = answerMatch[1].replace(/\\n/g, '\n').replace(/\\"/g, '"');
                 }
-                
-                return { ...m, content: displayContent };
-              })
-            )
-          }
+              } else if (aiContent.includes('"answer"')) {
+                // answer キーはあるが値が始まっていない状況
+                displayContent = "...";
+              }
+              
+              return { ...m, content: displayContent };
+            })
+          )
+        }
 
           // --- ループ終了後の残留バッファ処理 ---
           if (buffer.trim()) {
