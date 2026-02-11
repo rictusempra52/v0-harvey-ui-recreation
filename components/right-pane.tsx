@@ -4,6 +4,7 @@ import { PdfViewer } from "@/components/pdf-viewer"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { useEffect, useState } from "react"
 import { createClient } from "@/lib/supabase"
+import { useViewUrl } from "@/hooks/use-view-url"
 
 interface RightPaneProps {
     selectedSource: {
@@ -22,6 +23,7 @@ export function RightPane({ selectedSource, onClose }: RightPaneProps) {
     const [annotations, setAnnotations] = useState<any[] | undefined>(undefined)
     const [loading, setLoading] = useState(false)
     const supabase = createClient()
+    const { url: signedUrl, loading: urlLoading } = useViewUrl(filePath)
 
     useEffect(() => {
         if (selectedSource?.fileId) {
@@ -97,9 +99,8 @@ export function RightPane({ selectedSource, onClose }: RightPaneProps) {
         }
     }, [selectedSource, supabase])
 
-    const pdfUrl = filePath
-        ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/pdfs/${filePath}`
-        : "/sample.pdf"
+    const pdfUrl = signedUrl || "/sample.pdf"
+    const isPdfLoading = loading || (filePath !== null && urlLoading);
 
     return (
         <aside className="flex flex-col h-full w-full overflow-hidden">
@@ -116,7 +117,7 @@ export function RightPane({ selectedSource, onClose }: RightPaneProps) {
                 <div className="flex-1 flex flex-col min-h-0">
                     <div className="p-4 border-b flex items-center justify-between">
                         <h3 className="font-bold text-lg">{selectedSource.title}</h3>
-                        {loading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+                        {(isPdfLoading) && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
                     </div>
                     <div className="flex-1 min-h-0 relative">
                         <PdfViewer

@@ -342,6 +342,24 @@ export default function DocumentsPage() {
         }
     }
 
+    const handleDownload = async (filePath: string) => {
+        try {
+            const { data, error } = await supabase.functions.invoke('get-gcs-view-url', {
+                body: { filePath }
+            })
+
+            if (error) throw error
+            if (data?.url) {
+                window.open(data.url, '_blank')
+            } else {
+                toast.error("ダウンロードURLの取得に失敗しました")
+            }
+        } catch (err) {
+            console.error('Download error:', err)
+            toast.error("ダウンロードに失敗しました")
+        }
+    }
+
     return (
         <ResizablePanelGroup direction="horizontal" className="h-dvh bg-background text-foreground">
             {/* サイドバー（デスクトップ） */}
@@ -502,7 +520,7 @@ export default function DocumentsPage() {
                                                                                 variant="ghost"
                                                                                 size="icon"
                                                                                 className="h-10 w-10 text-muted-foreground hover:text-foreground hover:bg-accent"
-                                                                                onClick={() => window.open(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/pdfs/${doc.file_path}`, '_blank')}
+                                                                                onClick={() => handleDownload(doc.file_path)}
                                                                             >
                                                                                 <DownloadIcon className="h-5 w-5" />
                                                                             </Button>
