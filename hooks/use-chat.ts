@@ -169,72 +169,72 @@ export function useChat() {
             const trimmedLine = line.trim()
             if (!trimmedLine) continue
 
-            // デバックログ: 受信チャンク
-            console.log("▼ Received Stream Line:", trimmedLine.substring(0, 100))
-
-            if (trimmedLine.startsWith('0:')) { // オブジェクトの断片（AI SDK形式）
+            if (trimmedLine.startsWith('0:')) {
+              // 0: はテキスト（JSON文字列の断片）
               const content = trimmedLine.substring(2)
-              console.log("▼ DEBUG Content (0:):", content)
-              // AI SDK の JSON 文字列断片は、エスケープされた引用符を含む場合がある
               try {
+                // AI SDK は JSON 文字列としてシリアライズして送ってくるためパースが必要
                 const text = JSON.parse(content)
                 aiContent += text
-                console.log("▼ DEBUG aiContent after parse:", aiContent.substring(aiContent.length - 50))
               } catch (e) {
+                // パースに失敗した場合はそのまま追加（フォールバック）
                 aiContent += content
-                console.log("▼ DEBUG aiContent after fallback:", aiContent.substring(aiContent.length - 50))
               }
             } else if (trimmedLine.startsWith('e:')) {
-              console.log("Stream Finish Event:", trimmedLine)
+              console.error("Stream Error Event:", trimmedLine)
             } else if (trimmedLine.startsWith('d:')) {
-              console.log("Usage Data received:", trimmedLine)
-            } else {
-              // プレフィックスがない直接的なJSON断片の場合（稀）
-              aiContent += trimmedLine
+              console.log("Stream Finish Event (Metadata):", trimmedLine)
             }
           }
 
-          setMessages(prev => 
-            prev.map(m => {
-              if (m.id !== "temp-ai-id") return m;
-              
-              let displayContent = aiContent;
-              // JSON文字列の中から answer プロパティの値を抽出する
-              // 例: {"answer": "こんにちは...
-              const answerMatch = aiContent.match(/"answer"\s*:\s*"((?:[^"\\]|\\.)*)/);
-              if (answerMatch) {
-                displayContent = answerMatch[1]
-                  .replace(/\\n/g, '\n')
-                  .replace(/\\"/g, '"')
-                  .replace(/\\r/g, '\r')
-                  .replace(/\\t/g, '\t');
-              }
-              
-              return { ...m, content: displayContent };
-            })
-          )
-        }
+            // UI経過を反映
+            setMessages(prev => 
+              prev.map(m => {
+                if (m.id !== "temp-ai-id") return m;
+                
+                let displayContent = aiContent;
+                const answerMatch = aiContent.match(/"answer"\s*:\s*"((?:[^"\\]|\\.)*)/);
+                if (answerMatch) {
+                  displayContent = answerMatch[1]
+                    .replace(/\\n/g, '\n')
+                    .replace(/\\"/g, '"')
+                    .replace(/\\r/g, '\r')
+                    .replace(/\\t/g, '\t');
+                }
+                
+                return { ...m, content: displayContent };
+              })
+            )
+          }
 
-        // 状態を最終確定（この時点で aiContent は完全な JSON のはず）
-        let finalAnswer = aiContent;
+          // --- ループ終了後の残留バッファ処理 ---
+          if (buffer.trim()) {
+            const line = buffer.trim();
+            if (line.startsWith('0:')) {
+              const content = line.substring(2);
+              try {
+                aiContent += JSON.parse(content);
+              } catch (e) {
+                // 引用符で囲まれている場合は除去して追加
+                aiContent += content.replace(/^"|"$/g, '');
+              }
+            }
+          }
+
+          console.log("Stream accumulation finished. Total aiContent length:", aiContent.length);
+          // console.log("Raw aiContent head:", aiContent.slice(0, 100));
+
+        // --- ストリーム終了後の最終処理 ---
+        let finalAnswer = "";
         let extractedSources: MessageSource[] = [];
 
-        try {
-          // JSON としてパース。失敗に備えて何重にもチェック。
-          let cleanJson = aiContent.trim();
-          // AI SDK の断片が残っている場合（稀）に備えてクリーンアップ
-          if (!cleanJson.startsWith('{')) {
-            const firstBrace = cleanJson.indexOf('{');
-            if (firstBrace !== -1) cleanJson = cleanJson.substring(firstBrace);
-          }
-          if (!cleanJson.endsWith('}')) {
-            const lastBrace = cleanJson.lastIndexOf('}');
-            if (lastBrace !== -1) cleanJson = cleanJson.substring(0, lastBrace + 1);
-          }
+        console.log("Finalizing AI content. Raw length:", aiContent.length);
 
-          const parsed = JSON.parse(cleanJson);
+        try {
+          // 最終的な JSON パース
+          const parsed = JSON.parse(aiContent);
           if (parsed && typeof parsed === 'object') {
-            finalAnswer = parsed.answer || aiContent;
+            finalAnswer = parsed.answer || "";
             if (Array.isArray(parsed.sources)) {
               extractedSources = parsed.sources.map((s: any) => ({
                 title: s.title || "参照資料",
@@ -246,31 +246,29 @@ export function useChat() {
             }
           }
         } catch (e) {
-          console.log("Final JSON parse failed, falling back to manual extraction:", e);
-          // フォールバック: JSONの崩れを考慮して answer 部分を正規表現で救出
-          const answerMatch = aiContent.match(/"answer"\s*:\s*"((?:[^"\\]|\\.)*)/);
-          if (answerMatch) {
-            finalAnswer = answerMatch[1].replace(/\\n/g, '\n').replace(/\\"/g, '"');
-          }
-
-          // ソース情報も正規表現で抽出を試みる
-          const sourcePatterns = /\[?SourceID:\s*([a-f\d-]+)(?:,\s*Page:\s*(\d+))?(?:,\s*Block:\s*(\d+))?\]?/gi
-          const matches = Array.from(aiContent.matchAll(sourcePatterns))
-          
-          matches.forEach(match => {
-            const fileId = match[1]
-            const page = match[2]
-            const blockId = match[3]
-            if (!extractedSources.some(s => s.fileId === fileId && s.page === page && s.blockId === blockId)) {
-              extractedSources.push({
-                title: "参照資料",
-                fileId,
-                page,
-                blockId
-              })
-            }
-          })
+          console.warn("Final JSON parse failed. Attempting regex extraction.", e);
         }
+
+        // パース失敗時、または answer が空の場合は正規表現で救済
+        if (!finalAnswer) {
+          const answerMatch = aiContent.match(/"answer"\s*:\s*"((?:[^"\\]|\\.)*)"/) || 
+                             aiContent.match(/"answer"\s*:\s*"((?:[^"\\]|\\.)*)/);
+          if (answerMatch) {
+            finalAnswer = answerMatch[1]
+              .replace(/\\n/g, '\n')
+              .replace(/\\"/g, '"')
+              .replace(/\\r/g, '\r')
+              .replace(/\\t/g, '\t');
+          }
+        }
+
+        // それでも空の場合は累計内容をそのまま使う
+        if (!finalAnswer && aiContent) {
+          finalAnswer = aiContent;
+        }
+
+        console.log("Final answer extracted (length):", finalAnswer.length);
+        console.log("Final sources extracted (count):", extractedSources.length);
 
         console.log("Extracted sources strategy final:", extractedSources)
 
