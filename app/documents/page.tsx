@@ -208,9 +208,12 @@ export default function DocumentsPage() {
 
         try {
             // 1. Storageから削除 (GCS と Supabase Storage 両方を試みる)
-            // GCSからの削除
+            // GCSからの削除 (PDF本体とOCR結果フォルダ)
             const { error: gcsError } = await supabase.functions.invoke('delete-gcs-object', {
-                body: { filePaths: [path] }
+                body: {
+                    filePaths: [path],
+                    prefixes: [`ocr-results/${id}/`]
+                }
             })
             if (gcsError) console.warn('GCS removal failed or skipped:', gcsError)
 
@@ -256,9 +259,12 @@ export default function DocumentsPage() {
         setConfirmDelete(null)
 
         try {
-            // 一括削除（GCS）
+            // 一括削除（GCS - PDF本体とOCR結果フォルダ）
             const { error: gcsError } = await supabase.functions.invoke('delete-gcs-object', {
-                body: { filePaths: docsToDelete.map(doc => doc.file_path) }
+                body: {
+                    filePaths: docsToDelete.map(doc => doc.file_path),
+                    prefixes: docsToDelete.map(doc => `ocr-results/${doc.id}/`)
+                }
             })
             if (gcsError) console.warn('Bulk GCS removal failed:', gcsError)
 

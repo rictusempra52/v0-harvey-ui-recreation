@@ -12,10 +12,10 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { filePaths } = await req.json();
+    const { filePaths, prefixes } = await req.json();
 
-    if (!filePaths || !Array.isArray(filePaths)) {
-      return new Response(JSON.stringify({ error: "filePaths array is required" }), {
+    if ((!filePaths || !Array.isArray(filePaths)) && (!prefixes || !Array.isArray(prefixes))) {
+      return new Response(JSON.stringify({ error: "filePaths or prefixes array is required" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -34,14 +34,25 @@ Deno.serve(async (req) => {
     const storage = new Storage({ credentials, projectId: credentials.project_id });
     const bucket = storage.bucket(bucketName);
 
-    console.log(`Deleting files from GCS: ${filePaths.join(", ")}`);
+    // Delete specific files
+    if (filePaths && Array.isArray(filePaths) && filePaths.length > 0) {
+      console.log(`Deleting files from GCS: ${filePaths.join(", ")}`);
+      const deletePromises = filePaths.map(path => bucket.file(path).delete().catch(err => {
+        console.warn(`Failed to delete ${path}: ${err.message}`);
+        return null; // Ignore individual failures
+      }));
+      await Promise.all(deletePromises);
+    }
 
-    const deletePromises = filePaths.map(path => bucket.file(path).delete().catch(err => {
-      console.warn(`Failed to delete ${path}: ${err.message}`);
-      return null; // Ignore individual failures
-    }));
-
-    await Promise.all(deletePromises);
+    // Delete files by prefix (folder)
+    if (prefixes && Array.isArray(prefixes) && prefixes.length > 0) {
+      console.log(`Deleting prefixes from GCS: ${prefixes.join(", ")}`);
+      const deletePrefixPromises = prefixes.map(prefix => bucket.deleteFiles({ prefix }).catch(err => {
+        console.warn(`Failed to delete prefix ${prefix}: ${err.message}`);
+        return null;
+      }));
+      await Promise.all(deletePrefixPromises);
+    }
 
     return new Response(JSON.stringify({ success: true }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
