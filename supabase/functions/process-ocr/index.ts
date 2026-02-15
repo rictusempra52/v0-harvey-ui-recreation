@@ -94,10 +94,36 @@ function convertToQuadPoints(normalizedVertices: any[], width: number, height: n
 function extractTextFromBlocksRecursive(blocks: any[]): string {
   let text = "";
   for (const block of blocks) {
+    // 段落テキスト
     if (block.textBlock?.text) {
       text += block.textBlock.text + "\n";
     }
-    // ネストされたブロックがある場合は再帰的に処理
+    // 表形式
+    if (block.tableBlock?.headerRows) {
+      for (const row of block.tableBlock.headerRows) {
+        if (row.cells) {
+          for (const cell of row.cells) {
+            if (cell.blocks) text += extractTextFromBlocksRecursive(cell.blocks);
+          }
+        }
+      }
+    }
+    if (block.tableBlock?.bodyRows) {
+      for (const row of block.tableBlock.bodyRows) {
+        if (row.cells) {
+          for (const cell of row.cells) {
+            if (cell.blocks) text += extractTextFromBlocksRecursive(cell.blocks);
+          }
+        }
+      }
+    }
+    // リスト形式
+    if (block.listBlock?.listEntries) {
+      for (const entry of block.listBlock.listEntries) {
+        if (entry.blocks) text += extractTextFromBlocksRecursive(entry.blocks);
+      }
+    }
+    // 入れ子構造のブロック
     if (block.textBlock?.blocks) {
       text += extractTextFromBlocksRecursive(block.textBlock.blocks);
     }
@@ -126,8 +152,9 @@ function getVerticesFromBlock(block: any): any[] | null {
  */
 function processBlocksRecursive(blocks: any[], width: number, height: number, pagesMap: Map<number, any[]>): void {
   for (const block of blocks) {
+    // 1. テキストブロックの処理
     if (block.textBlock?.text) {
-      const pageNum = block.pageSpan?.startPage || 1;
+      const pageNum = block.pageSpan?.pageStart || 1;
       const normalizedVertices = getVerticesFromBlock(block);
       
       if (!pagesMap.has(pageNum)) {
@@ -145,7 +172,27 @@ function processBlocksRecursive(blocks: any[], width: number, height: number, pa
         console.warn(`[OCR Debug] Vertex not found. ID: ${block.blockId}, type: ${block.type}, keys: ${Object.keys(block).join(", ")}`);
       }
     }
-    // ネストされたブロックがある場合は再帰的に処理
+
+    // 2. 表（Table）の処理
+    const tableRows = [...(block.tableBlock?.headerRows || []), ...(block.tableBlock?.bodyRows || [])];
+    if (tableRows.length > 0) {
+      for (const row of tableRows) {
+        if (row.cells) {
+          for (const cell of row.cells) {
+            if (cell.blocks) processBlocksRecursive(cell.blocks, width, height, pagesMap);
+          }
+        }
+      }
+    }
+
+    // 3. リスト（List）の処理
+    if (block.listBlock?.listEntries) {
+      for (const entry of block.listBlock.listEntries) {
+        if (entry.blocks) processBlocksRecursive(entry.blocks, width, height, pagesMap);
+      }
+    }
+
+    // 4. 入れ子構造のテキストブロックの処理
     if (block.textBlock?.blocks) {
       processBlocksRecursive(block.textBlock.blocks, width, height, pagesMap);
     }
@@ -165,7 +212,12 @@ Deno.serve(async (req: Request) => {
     }
 
     const body = await req.json();
-    const { record } = body as { record: DocumentRecord };
+    const { record, skipProcessing, existingLayoutUri, existingOcrUri } = body as { 
+      record: DocumentRecord, 
+      skipProcessing?: boolean,
+      existingLayoutUri?: string,
+      existingOcrUri?: string
+    };
     if (!record?.id) return new Response('Invalid record', { status: 400 });
     recordId = record.id;
 
@@ -241,71 +293,36 @@ Deno.serve(async (req: Request) => {
       return { operation, outputGcsUriPrefix };
     }
 
-    // 1. 両Processorのバッチ処理を開始（並列実行）
-    const processorPromises = [];
-    
-    // Layout Parser (必須)
-    processorPromises.push(
-      startBatchProcess(layoutParserId, 'layout').then(result => ({ ...result, type: 'layout' }))
-    );
-    
-    // Standard OCR (オプション: 設定されている場合のみ)
-    if (standardOcrId) {
-      processorPromises.push(
-        startBatchProcess(standardOcrId, 'ocr').then(result => ({ ...result, type: 'ocr' }))
-      );
-    }
-    
-    const processorResults = await Promise.all(processorPromises);
-    console.log(`Started ${processorResults.length} processor(s)`);
-    
-    // 各Processorの結果を保存
-    const layoutResult = processorResults.find(r => r.type === 'layout')!;
-    const ocrResult = processorResults.find(r => r.type === 'ocr');
+    // 1 & 2. 各Processorの処理（再利用または新規実行）
+    const layoutDetails = { type: 'layout', outputGcsUriPrefix: '' as string, operationName: '' };
+    const ocrDetails = { type: 'ocr', outputGcsUriPrefix: '' as string, operationName: '' };
 
-    // Helper: Operationの完了を待機
-    async function waitForOperation(operationName: string, label: string) {
-      let isDone = false;
-      let pollCount = 0;
-      const maxPolls = 60; // 5 seconds * 60 = 300 seconds (5 minutes)
-      
-      while (!isDone && pollCount < maxPolls) {
-        await new Promise(resolve => setTimeout(resolve, 5000));
-        pollCount++;
-        
-        const opStatusResponse = await fetch(`https://${gcsLocation}-documentai.googleapis.com/v1/${operationName}`, {
-          headers: { "Authorization": `Bearer ${accessToken}` }
-        });
-        
-        const opStatus = await opStatusResponse.json();
-        if (opStatus.done) {
-          isDone = true;
-          console.log(`[${label}] Operation completed after ${pollCount} polls`);
-          if (opStatus.error) {
-            console.error(`[${label}] Operation error:`, opStatus.error);
-            throw new Error(`[${label}] Document AI operation failed: ${JSON.stringify(opStatus.error)}`);
-          }
-        } else {
-          console.log(`[${label}] Polling... (${pollCount}/${maxPolls})`);
-        }
-      }
-      
-      if (!isDone) {
-        throw new Error(`[${label}] Operation timed out after ${maxPolls} polls`);
-      }
+    // Layout Parser
+    if (skipProcessing && existingLayoutUri) {
+      console.log(`[Layout Parser] Reusing existing results: ${existingLayoutUri}`);
+      layoutDetails.outputGcsUriPrefix = existingLayoutUri;
+    } else {
+      const { operation, outputGcsUriPrefix } = await startBatchProcess(layoutParserId, 'layout');
+      await waitForOperation(operation.name, 'Layout Parser');
+      layoutDetails.outputGcsUriPrefix = outputGcsUriPrefix;
     }
 
-    // 2. 両Processorの完了を待機（並列）
-    const waitPromises = [
-      waitForOperation(layoutResult.operation.name, 'Layout Parser')
-    ];
-    
-    if (ocrResult) {
-      waitPromises.push(waitForOperation(ocrResult.operation.name, 'Standard OCR'));
+    // Standard OCR (Optional)
+    let hasOcrResult = false;
+    if (standardOcrId || (skipProcessing && existingOcrUri)) {
+      if (skipProcessing && existingOcrUri) {
+        console.log(`[Standard OCR] Reusing existing results: ${existingOcrUri}`);
+        ocrDetails.outputGcsUriPrefix = existingOcrUri;
+        hasOcrResult = true;
+      } else if (standardOcrId) {
+        const { operation, outputGcsUriPrefix } = await startBatchProcess(standardOcrId, 'ocr');
+        await waitForOperation(operation.name, 'Standard OCR');
+        ocrDetails.outputGcsUriPrefix = outputGcsUriPrefix;
+        hasOcrResult = true;
+      }
     }
     
-    await Promise.all(waitPromises);
-    console.log('All processors completed successfully');
+    console.log('OCR processing (or result preparation) completed');
 
     // Helper: GCSから結果を取得
     async function fetchProcessorResults(outputGcsUriPrefix: string, label: string) {
@@ -330,9 +347,9 @@ Deno.serve(async (req: Request) => {
       return results;
     }
 
-    // 3. 両Processorの結果を取得
-    const layoutDocs = await fetchProcessorResults(layoutResult.outputGcsUriPrefix, 'Layout Parser');
-    const ocrDocs = ocrResult ? await fetchProcessorResults(ocrResult.outputGcsUriPrefix, 'Standard OCR') : null;
+    // 3. 各Processorの結果を取得
+    const layoutDocs = await fetchProcessorResults(layoutDetails.outputGcsUriPrefix, 'Layout Parser');
+    const ocrDocs = hasOcrResult ? await fetchProcessorResults(ocrDetails.outputGcsUriPrefix, 'Standard OCR') : null;
     
     if (!layoutDocs || layoutDocs.length === 0) {
       throw new Error('Layout Parser results not found');
@@ -519,13 +536,14 @@ Deno.serve(async (req: Request) => {
 
     // If still empty text, put debug info into ocr_text
     const finalOcrText = fullExtractedText || `DEBUG: No text found. ${debugInfo}`;
+    const resultSummary = `Success: ${allOcrPages.length} pages, ${flattenedSearchIndex.length} blocks extracted. Max Page: ${allOcrPages.length > 0 ? Math.max(...allOcrPages.map(p => p.page_number)) : 0}`;
 
     await supabase
       .from('documents')
       .update({
-        ocr_text: finalOcrText,
-        ocr_pages: { pages: allOcrPages.slice(0, 100) }, // フルデータ (座標あり)
-        ocr_search_index: flattenedSearchIndex.slice(0, 1000), // 検索用 (テキストのみ)
+        ocr_text: resultSummary + "\n\n" + finalOcrText,
+        ocr_pages: { pages: allOcrPages.slice(0, 250) },
+        ocr_search_index: flattenedSearchIndex.slice(0, 3000),
         ocr_status: 'completed'
       })
       .eq('id', recordId);

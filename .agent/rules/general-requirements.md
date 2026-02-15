@@ -8,3 +8,4 @@ trigger: always_on
 - **Plans**: Also write your implementation plan in Japanese.
 - **Reference**: For project-specific rules, please refer to `GEMINI.md` and other rule files in `.agent/` (currently `.agent/frontend-rules.md`, etc.).
 - If you are creating an implementation plan for modifications that change the backend processing flow, please visualize the flow using mermaid, for example.
+- When you are about to execute a command, be sure specify its purpose and effect.
