@@ -55,22 +55,47 @@ export async function POST(req: Request) {
         // @ts-ignore
         apartmentName = session.apartments?.name || "";
         
-        const { data: docs } = await supabase
-          .from('documents')
-          .select('id, file_name, ocr_search_index')
-          .eq('apartment_id', session.apartment_id)
-          .not('ocr_search_index', 'is', null);
+        // 1. ユーザーの質問（最後のメッセージ）をベクトル化
+        const lastMessage = messages[messages.length - 1]?.content || "";
+        console.log(`[${now}] Vectorizing query: "${lastMessage.substring(0, 50)}..."`);
+        
+        const googleApiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+        const embeddingRes = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=${googleApiKey}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              model: 'models/text-embedding-004',
+              content: { parts: [{ text: lastMessage }] }
+            })
+          }
+        );
 
-        if (docs && docs.length > 0) {
-          context = docs.map(d => {
-            const index = (d.ocr_search_index as any[]) || [];
-            const structuredText = index.map((item, i) => 
-              `[SourceID: ${d.id}, Page: ${item.page_number}, Block: ${i}]: ${item.text}`
-            ).join('\n');
-            
-            return `==== Document: ${d.file_name} (ID: ${d.id}) ====\n${structuredText}\n====================`;
-          }).join('\n\n');
-          console.log(`[${now}] Context loaded: ${docs.length} documents`);
+        if (embeddingRes.ok) {
+          const { embedding } = await embeddingRes.json();
+          const queryVector = embedding.values;
+
+          // 2. 類似チャンクを検索
+          const { data: chunks, error: matchError } = await supabase.rpc('match_document_chunks', {
+            query_embedding: queryVector,
+            match_threshold: 0.3, // 類似度の閾値
+            match_count: 20,      // 上位20件
+            p_apartment_id: session.apartment_id
+          });
+
+          if (matchError) {
+            console.error(`[${now}] Vector search error:`, matchError);
+          } else if (chunks && chunks.length > 0) {
+            context = chunks.map((c: any) => 
+              `[SourceID: ${c.document_id}, Page: ${c.page_number}, File: ${c.file_name}]: ${c.content}`
+            ).join('\n\n');
+            console.log(`[${now}] Context loaded via vector search: ${chunks.length} chunks`);
+          } else {
+            console.log(`[${now}] No relevant chunks found for the query.`);
+          }
+        } else {
+          console.error(`[${now}] Failed to generate query embedding:`, await embeddingRes.text());
         }
       }
     }
@@ -122,15 +147,16 @@ ${context || '提供された文書はありません。'}
               // ログ出力（デバッグ用）
               console.log(`[${new Date().toLocaleTimeString()}] --- Stream Part --- Type: ${part.type}`);
 
-              if (part.type === 'object-delta') {
+              const p = part as any;
+              if (p.type === 'object-delta') {
                 // streamObject の場合、JSONの断片は object-delta として来る
                 // クライアント側の既存ロジックに合わせて '0:' prefix で送る
-                // 注意: part.objectDelta はオブジェクトの断片なので、文字列化して送る
-                const chunk = `0:${JSON.stringify(JSON.stringify(part.objectDelta))}\n`;
+                // 注意: p.objectDelta はオブジェクトの断片なので、文字列化して送る
+                const chunk = `0:${JSON.stringify(JSON.stringify(p.objectDelta))}\n`;
                 controller.enqueue(encoder.encode(chunk));
-              } else if (part.type === 'text-delta') {
+              } else if (p.type === 'text-delta') {
                 // フォールバック
-                const chunk = `0:${JSON.stringify(part.textDelta)}\n`;
+                const chunk = `0:${JSON.stringify(p.textDelta)}\n`;
                 controller.enqueue(encoder.encode(chunk));
               }
             }

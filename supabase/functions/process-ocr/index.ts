@@ -534,8 +534,72 @@ Deno.serve(async (req: Request) => {
       }))
     );
 
-    // If still empty text, put debug info into ocr_text
-    const finalOcrText = fullExtractedText || `DEBUG: No text found. ${debugInfo}`;
+    // --- Vector Embedding (RAG) ---
+    console.log(`[RAG] Generating embeddings for ${flattenedSearchIndex.length} blocks...`);
+    const googleApiKey = Deno.env.get('GOOGLE_GENERATIVE_AI_API_KEY');
+    
+    if (googleApiKey && flattenedSearchIndex.length > 0) {
+      try {
+        // 既存のチャンクを削除（再処理の場合）
+        await supabase.from('document_chunks').delete().eq('document_id', recordId);
+
+        // 100ブロックずつのバッチで処理（APIリミットとパフォーマンスのバランス）
+        const batchSize = 100;
+        for (let i = 0; i < flattenedSearchIndex.length; i += batchSize) {
+          const batch = flattenedSearchIndex.slice(i, i + batchSize);
+          console.log(`[RAG] Processing batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(flattenedSearchIndex.length / batchSize)}`);
+
+          const embeddingResponse = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:batchEmbedContents?key=${googleApiKey}`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                requests: batch.map(b => ({
+                  model: 'models/text-embedding-004',
+                  content: { parts: [{ text: b.text }] }
+                }))
+              })
+            }
+          );
+
+          if (!embeddingResponse.ok) {
+            const err = await embeddingResponse.text();
+            console.error(`[RAG] Embedding Error: ${err}`);
+            continue;
+          }
+
+          const embeddingData = await embeddingResponse.json();
+          const embeddings = embeddingData.embeddings || [];
+
+          // データベースに保存
+          const chunksToInsert = batch.map((b, idx) => ({
+            document_id: recordId,
+            content: b.text,
+            page_number: b.page_number,
+            embedding: embeddings[idx]?.values,
+            metadata: { source: 'ocr-block' }
+          })).filter(c => c.embedding); // ベクトルが取得できたもののみ
+
+          if (chunksToInsert.length > 0) {
+            const { error: insertErr } = await supabase
+              .from('document_chunks')
+              .insert(chunksToInsert);
+            
+            if (insertErr) {
+              console.error(`[RAG] DB Insert Error:`, insertErr);
+            }
+          }
+        }
+        console.log(`[RAG] Finished generating embeddings.`);
+      } catch (ragErr) {
+        console.error(`[RAG] Fatal Error:`, ragErr);
+      }
+    } else {
+      console.warn(`[RAG] Skipped: API Key missing or no blocks to embed.`);
+    }
+
+    // Final status update (Original logic continues)
     const resultSummary = `Success: ${allOcrPages.length} pages, ${flattenedSearchIndex.length} blocks extracted. Max Page: ${allOcrPages.length > 0 ? Math.max(...allOcrPages.map(p => p.page_number)) : 0}`;
 
     await supabase
